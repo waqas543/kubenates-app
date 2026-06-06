@@ -1,6 +1,6 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
-import { deleteNamespaced, getDaemonSet, getEvents, patchNamespaced } from '@/lib/kubernetesClient';
+import { deleteNamespaced, getControllerRevisions, getDaemonSet, getEvents, patchNamespaced } from '@/lib/kubernetesClient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Info,
   RefreshCw,
+  RotateCcw,
   Server,
   Trash2,
   XCircle,
@@ -98,6 +99,48 @@ export default function DaemonSetDetailsScreen() {
             queryClient.invalidateQueries({ queryKey: ['daemonsets'] });
           } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Restart failed');
+          } finally {
+            setActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRollback = () => {
+    Alert.alert('Rollback DaemonSet', `Roll back "${name}" to the previous revision?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Rollback',
+        onPress: async () => {
+          if (!cfg || !ds) return;
+          setActionLoading('rollback');
+          try {
+            const selector = ds.spec?.selector?.matchLabels ?? {};
+            const labelQuery = Object.entries(selector).map(([k, v]) => `${k}=${v}`).join(',');
+            const crRes = await getControllerRevisions(cfg, namespace, labelQuery);
+            const allCRs: any[] = crRes.data?.items ?? [];
+            const ownedCRs = allCRs.filter((cr: any) =>
+              (cr.metadata?.ownerReferences ?? []).some(
+                (ref: any) => ref.kind === 'DaemonSet' && ref.name === name,
+              ),
+            );
+            ownedCRs.sort((a: any, b: any) => (b.revision ?? 0) - (a.revision ?? 0));
+            if (ownedCRs.length < 2) {
+              Alert.alert('Info', 'No previous revision found to roll back to.');
+              return;
+            }
+            const template = ownedCRs[1].data?.spec?.template;
+            if (!template) {
+              Alert.alert('Error', 'Could not read previous revision template.');
+              return;
+            }
+            await patchNamespaced(cfg, 'daemonsets', namespace, name, { spec: { template } });
+            await refetch();
+            queryClient.invalidateQueries({ queryKey: ['daemonsets'] });
+            Alert.alert('Success', 'Rollback initiated successfully.');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Rollback failed');
           } finally {
             setActionLoading(null);
           }
@@ -203,12 +246,27 @@ export default function DaemonSetDetailsScreen() {
             <Text style={styles.actionBtnText}>{actionLoading === 'restart' ? 'Restarting...' : 'Restart'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={[styles.actionBtn, styles.btnAmber, actionLoading === 'rollback' && styles.btnDisabled]}
+            onPress={handleRollback}
+            disabled={!!actionLoading}
+          >
+            <RotateCcw size={16} color="#FFF" />
+            <Text style={styles.actionBtnText}>{actionLoading === 'rollback' ? 'Rolling back...' : 'Rollback'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.actionBtn, styles.btnRed, actionLoading === 'delete' && styles.btnDisabled]}
             onPress={handleDelete}
             disabled={!!actionLoading}
           >
             <Trash2 size={16} color="#FFF" />
             <Text style={styles.actionBtnText}>{actionLoading === 'delete' ? 'Deleting...' : 'Delete'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.btnDark]}
+            onPress={() => navigation.navigate('Logs', { type: 'daemonset', name, namespace })}
+            disabled={!!actionLoading}
+          >
+            <Text style={styles.actionBtnText}>View Logs</Text>
           </TouchableOpacity>
         </View>
 
@@ -332,7 +390,9 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, minWidth: '47%', flex: 1 },
   btnCyan: { backgroundColor: '#00D9FF' },
+  btnAmber: { backgroundColor: '#FF9F43' },
   btnRed: { backgroundColor: '#FF5757' },
+  btnDark: { backgroundColor: '#1E2B42' },
   btnDisabled: { opacity: 0.5 },
   actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
   containerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },

@@ -272,6 +272,30 @@ export const [KubernetesContext, useKubernetes] = createContextHook(() => {
       const user = config.users.find((u) => u.name === ctx.context.user);
       if (!cluster) throw new Error('Cluster not found');
 
+      // Detect EKS exec credential provider (aws eks get-token)
+      const exec = user?.user?.exec;
+      if (exec?.command === 'aws' && exec.args?.includes('get-token')) {
+        const args = exec.args ?? [];
+        const regionIdx = args.indexOf('--region');
+        const clusterIdx = args.indexOf('--cluster-name');
+        const region = regionIdx >= 0 ? args[regionIdx + 1] : '';
+        const clusterName = clusterIdx >= 0 ? args[clusterIdx + 1] : '';
+
+        return {
+          name: contextName,
+          server: cluster.cluster.server,
+          namespace: ctx.context.namespace || 'default',
+          caCertificate: cluster.cluster['certificate-authority-data'],
+          connectionType: 'eks',
+          eks: {
+            clusterName,
+            region,
+            accessKeyId: '',
+            secretAccessKey: '',
+          },
+        };
+      }
+
       return {
         name: contextName,
         server: cluster.cluster.server,

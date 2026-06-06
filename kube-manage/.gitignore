@@ -78,3 +78,7 @@ yarn-error.*
 *.tsbuildinfo
 
 # @end expo-cli
+
+# Android release signing — never commit these
+*.keystore
+android/gradle.properties

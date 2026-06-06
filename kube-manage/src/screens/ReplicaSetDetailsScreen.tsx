@@ -171,6 +171,13 @@ export default function ReplicaSetDetailsScreen() {
             <Trash2 size={16} color="#FFF" />
             <Text style={styles.actionBtnText}>{actionLoading === 'delete' ? 'Deleting...' : 'Delete ReplicaSet'}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.btnDark]}
+            onPress={() => navigation.navigate('Logs', { type: 'replicaset', name, namespace })}
+            disabled={!!actionLoading}
+          >
+            <Text style={styles.actionBtnText}>View Logs</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Owner References */}
@@ -298,6 +305,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, flex: 1 },
   btnRed: { backgroundColor: '#FF5757' },
+  btnDark: { backgroundColor: '#1E2B42' },
   btnDisabled: { opacity: 0.5 },
   actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
   ownerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },

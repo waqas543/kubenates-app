@@ -1,54 +1,257 @@
+import { useKubernetes } from '@/context/KubernetesContext';
+import { toParsedConfig } from '@/lib/kubeHelpers';
+import type { ParsedKubeConfig } from '@/lib/kubernetesClient';
+import {
+  getDaemonSet,
+  getDeployment,
+  getPod,
+  getPodLogs,
+  getPodsWithSelector,
+  getReplicaSet,
+  getStatefulSet,
+} from '@/lib/kubernetesClient';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { RefreshCw } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type RouteType = RouteProp<RootStackParamList, 'Logs'>;
-type LogResourceType = 'pod' | 'deployment' | 'statefulset';
+
+async function resolveInfo(
+  cfg: ParsedKubeConfig,
+  type: string,
+  namespace: string,
+  name: string,
+): Promise<{ pods: string[]; containers: string[] }> {
+  if (type === 'pod') {
+    const res = await getPod(cfg, namespace, name);
+    const containers: string[] = (res.data?.spec?.containers ?? []).map((c: any) => c.name as string);
+    return { pods: [name], containers };
+  }
+
+  const getterMap: Record<string, (c: ParsedKubeConfig, ns: string, n: string) => Promise<any>> = {
+    deployment: getDeployment,
+    statefulset: getStatefulSet,
+    daemonset: getDaemonSet,
+    replicaset: getReplicaSet,
+  };
+
+  const getter = getterMap[type.toLowerCase()];
+  if (!getter) return { pods: [], containers: [] };
+
+  const res = await getter(cfg, namespace, name);
+  const resource = res.data;
+  const matchLabels: Record<string, string> = resource?.spec?.selector?.matchLabels ?? {};
+  const labelSelector = Object.entries(matchLabels).map(([k, v]) => `${k}=${v}`).join(',');
+  const containers: string[] = (resource?.spec?.template?.spec?.containers ?? []).map((c: any) => c.name as string);
+
+  const podsRes = await getPodsWithSelector(cfg, namespace, labelSelector);
+  const pods: string[] = (podsRes.data?.items ?? [])
+    .map((p: any) => p.metadata?.name as string)
+    .filter(Boolean);
+
+  return { pods, containers };
+}
 
 export default function LogsScreen() {
   const route = useRoute<RouteType>();
-  const params = route.params ?? {};
-  const resourceType = (params.type as LogResourceType) || 'pod';
-  const name = params.name || 'unknown';
+  const { type = 'pod', name = '', namespace = 'default' } = route.params ?? {};
+  const { activeConnection } = useKubernetes();
+  const cfg = activeConnection ? toParsedConfig(activeConnection) : null;
 
-  const lines = useMemo(() => {
-    const now = new Date();
-    const base = `[${now.toISOString()}]`;
-    const kind = resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
-    return [
-      `${base} ${kind} "${name}": starting log stream`,
-      `${base} container init: pulling image...`,
-      `${base} container init: image pulled successfully`,
-      `${base} app: listening on 0.0.0.0:8080`,
-      `${base} app: health check passed`,
-      `${base} app: processing request GET /`,
-      `${base} app: processing request GET /healthz`,
-      `${base} app: processing request GET /metrics`,
-      `${base} ${kind} "${name}": log stream ended (mock data)`,
-    ];
-  }, [name, resourceType]);
+  const [selectedPod, setSelectedPod] = useState('');
+  const [selectedContainer, setSelectedContainer] = useState('');
+  const isDeployment = type === 'deployment';
 
-  const title =
-    resourceType === 'deployment'
-      ? 'Deployment Logs'
-      : resourceType === 'statefulset'
-      ? 'StatefulSet Logs'
-      : 'Pod Logs';
+  const {
+    data: info,
+    isLoading: infoLoading,
+    error: infoError,
+  } = useQuery({
+    queryKey: ['logs-info', type, namespace, name],
+    enabled: !!cfg,
+    retry: 1,
+    queryFn: () => resolveInfo(cfg!, type!, namespace, name),
+  });
+
+  useEffect(() => {
+    if (!info) return;
+    if (info.pods.length > 0 && !selectedPod) setSelectedPod(info.pods[0]);
+    if (info.containers.length > 0 && !selectedContainer) setSelectedContainer(info.containers[0]);
+  }, [info]);
+
+  const activePod = type === 'pod' ? name : selectedPod;
+  const activeContainer = selectedContainer || undefined;
+  const pods = info?.pods ?? [];
+  const podsKey = isDeployment ? pods.slice().sort().join(',') : activePod;
+
+  const {
+    data: logText,
+    isLoading: logsLoading,
+    error: logsError,
+    refetch: refetchLogs,
+  } = useQuery({
+    queryKey: ['logs-content', namespace, podsKey, activeContainer],
+    enabled: !!cfg && (isDeployment ? pods.length > 0 : !!activePod),
+    retry: 1,
+    refetchInterval: 2000,
+    queryFn: async () => {
+      if (isDeployment) {
+        const results = await Promise.all(
+          pods.map(async pod => {
+            try {
+              const res = await getPodLogs(cfg!, namespace, pod, {
+                container: activeContainer,
+                tailLines: 50,
+              });
+              const text = typeof res.data === 'string' ? res.data : String(res.data ?? '');
+              return text.split('\n').filter(l => l.trim()).map(l => `[${pod}] ${l}`);
+            } catch {
+              return [`[${pod}] <failed to fetch logs>`];
+            }
+          }),
+        );
+        return results.flat().join('\n');
+      }
+      const res = await getPodLogs(cfg!, namespace, activePod, {
+        container: activeContainer,
+        tailLines: 200,
+      });
+      return typeof res.data === 'string' ? res.data : String(res.data ?? '');
+    },
+  });
+
+  const logLines = logText ? logText.split('\n').filter(l => l.trim()) : [];
+  const containers = info?.containers ?? [];
+  const showPodPicker = !isDeployment && type !== 'pod' && pods.length > 1;
+  const showContainerPicker = containers.length > 1;
+  const kindLabel = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Resource';
+  const isRefreshing = infoLoading || logsLoading;
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle} numberOfLines={1}>{name}</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerInfo}>
+            <Text style={styles.title}>{kindLabel} Logs</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>{name}</Text>
+            {!infoLoading && activePod && type !== 'pod' && !isDeployment && (
+              <Text style={styles.activePod} numberOfLines={1}>pod: {activePod}</Text>
+            )}
+            {!infoLoading && isDeployment && pods.length > 0 && (
+              <Text style={styles.activePod}>{pods.length} pod{pods.length > 1 ? 's' : ''}</Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.refreshBtn, isRefreshing && styles.refreshBtnDisabled]}
+            onPress={() => refetchLogs()}
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={14} color="#00D9FF" />
+            <Text style={styles.refreshText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showPodPicker && (
+          <View style={styles.pickerSection}>
+            <Text style={styles.pickerLabel}>SELECT POD</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pickerRow}
+            >
+              {pods.map(pod => (
+                <TouchableOpacity
+                  key={pod}
+                  style={[styles.pill, selectedPod === pod && styles.pillActive]}
+                  onPress={() => setSelectedPod(pod)}
+                >
+                  <Text
+                    style={[styles.pillText, selectedPod === pod && styles.pillTextActive]}
+                    numberOfLines={1}
+                  >
+                    {pod}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {showContainerPicker && (
+          <View style={styles.pickerSection}>
+            <Text style={styles.pickerLabel}>SELECT CONTAINER</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pickerRow}
+            >
+              {containers.map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.pill, selectedContainer === c && styles.pillActive]}
+                  onPress={() => setSelectedContainer(c)}
+                >
+                  <Text style={[styles.pillText, selectedContainer === c && styles.pillTextActive]}>
+                    {c}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
-      <View style={styles.logContainer}>
-        <ScrollView contentContainerStyle={styles.logContent}>
-          {lines.map((line, idx) => (
-            <Text key={idx} style={styles.logLine}>{line}</Text>
-          ))}
-        </ScrollView>
+
+      {/* Log area */}
+      <View style={styles.logArea}>
+        {infoLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#00D9FF" />
+            <Text style={styles.statusText}>Resolving {kindLabel.toLowerCase()}...</Text>
+          </View>
+        ) : infoError ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>
+              {(infoError as any)?.message ?? 'Failed to resolve resource'}
+            </Text>
+          </View>
+        ) : type !== 'pod' && pods.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>No running pods found for this {kindLabel.toLowerCase()}</Text>
+          </View>
+        ) : logsLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#00D9FF" />
+            <Text style={styles.statusText}>Fetching logs...</Text>
+          </View>
+        ) : logsError ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>
+              {(logsError as any)?.message ?? 'Failed to fetch logs'}
+            </Text>
+          </View>
+        ) : logLines.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.statusText}>No log output available</Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.logContent}>
+            {logLines.map((line, idx) => (
+              <Text key={idx} style={styles.logLine}>{line}</Text>
+            ))}
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -56,10 +259,26 @@ export default function LogsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
+  header: { backgroundColor: '#162033', borderBottomWidth: 1, borderBottomColor: '#1E2B42', paddingBottom: 12 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, paddingBottom: 8 },
+  headerInfo: { flex: 1, marginRight: 12 },
+  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 2 },
   subtitle: { fontSize: 13, color: '#8B92A8' },
-  logContainer: { flex: 1, padding: 16 },
-  logContent: { padding: 12, borderRadius: 10, backgroundColor: '#050814' },
-  logLine: { fontSize: 12, color: '#E5E5E5', fontFamily: 'System', marginBottom: 2 },
+  activePod: { fontSize: 11, color: '#00D9FF', marginTop: 4 },
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00D9FF15', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00D9FF30' },
+  refreshBtnDisabled: { opacity: 0.4 },
+  refreshText: { fontSize: 12, color: '#00D9FF', fontWeight: '600' as const },
+  pickerSection: { paddingHorizontal: 16, marginTop: 6 },
+  pickerLabel: { fontSize: 10, color: '#8B92A8', fontWeight: '700' as const, letterSpacing: 1, marginBottom: 6 },
+  pickerRow: { gap: 8, paddingBottom: 2 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#0D1219', borderWidth: 1, borderColor: '#1E2B42', maxWidth: 220 },
+  pillActive: { backgroundColor: '#00D9FF20', borderColor: '#00D9FF' },
+  pillText: { fontSize: 12, color: '#8B92A8' },
+  pillTextActive: { color: '#00D9FF', fontWeight: '600' as const },
+  logArea: { flex: 1, padding: 12 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  statusText: { color: '#8B92A8', fontSize: 14 },
+  errorText: { color: '#FF5757', fontSize: 14, textAlign: 'center', paddingHorizontal: 24 },
+  logContent: { padding: 14, borderRadius: 10, backgroundColor: '#050814' },
+  logLine: { fontSize: 12, color: '#E5E5E5', fontFamily: 'monospace', marginBottom: 3, lineHeight: 18 },
 });
