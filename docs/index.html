@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy – KubePilot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0A0E1A;
+      --card:      #0D1219;
+      --border:    #1E2B42;
+      --teal:      #00D9FF;
+      --teal-dim:  #00b8d9;
+      --muted:     #8B92A8;
+      --text:      #E8EAF0;
+      --white:     #FFFFFF;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 24px 36px;
+      text-align: center;
+    }
+
+    .logo-ring {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #00D9FF18;
+      border: 2px solid #00D9FF40;
+      margin-bottom: 18px;
+    }
+
+    .logo-ring svg { width: 38px; height: 38px; }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+
+    header h1 span { color: var(--teal); }
+
+    .tagline {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      background: #00D9FF12;
+      border: 1px solid #00D9FF30;
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Layout ── */
+    main {
+      max-width: 760px;
+      margin: 48px auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Effective date banner ── */
+    .effective-date {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--teal);
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .effective-date strong { color: var(--white); }
+
+    /* ── Sections ── */
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    section h2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 18px;
+    }
+
+    .section-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #00D9FF12;
+      border: 1px solid #00D9FF30;
+      flex-shrink: 0;
+    }
+
+    .section-icon svg { width: 18px; height: 18px; stroke: var(--teal); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    p { color: var(--text); margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+
+    ul, ol {
+      padding-left: 20px;
+      margin-bottom: 14px;
+    }
+
+    li { color: var(--text); margin-bottom: 8px; }
+    li:last-child { margin-bottom: 0; }
+
+    /* ── Highlight box ── */
+    .highlight {
+      background: #00D9FF0A;
+      border: 1px solid #00D9FF25;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      color: var(--teal);
+    }
+
+    /* ── Data table ── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 0.9rem;
+    }
+
+    .data-table th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 0 12px 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 12px 12px 12px 0;
+      border-bottom: 1px solid #1E2B4250;
+      vertical-align: top;
+      color: var(--text);
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .pill-local  { background: #00D9FF15; color: var(--teal); border: 1px solid #00D9FF30; }
+    .pill-remote { background: #FF9F4315; color: #FF9F43;     border: 1px solid #FF9F4330; }
+    .pill-none   { background: #1E2B42;   color: var(--muted); border: 1px solid #2a3a55;   }
+
+    /* ── Contact ── */
+    .contact-link {
+      color: var(--teal);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .contact-link:hover { text-decoration: underline; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a { color: var(--teal); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      section { padding: 22px 18px; }
+      header h1 { font-size: 1.6rem; }
+      .data-table { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo-ring">
+    <!-- Kubernetes helm-wheel icon -->
+    <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="19" cy="19" r="17" stroke="#00D9FF" stroke-width="2.2"/>
+      <circle cx="19" cy="19" r="5"  stroke="#00D9FF" stroke-width="2.2"/>
+      <line x1="19" y1="2"  x2="19" y2="14" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="19" y1="24" x2="19" y2="36" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="2"  y1="19" x2="14" y2="19" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="24" y1="19" x2="36" y2="19" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="5.8"  y1="5.8"  x2="13.8" y2="13.8" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="24.2" y1="24.2" x2="32.2" y2="32.2" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="32.2" y1="5.8"  x2="24.2" y2="13.8" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="13.8" y1="24.2" x2="5.8"  y2="32.2" stroke="#00D9FF" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h1>Kube<span>Pilot</span></h1>
+  <p class="tagline">Kubernetes Cluster Manager for Mobile</p>
+  <div class="badge">Privacy Policy</div>
+</header>
+
+<!-- ── Main content ── -->
+<main>
+
+  <div class="effective-date">
+    <strong>Effective date:</strong> June 7, 2026 &nbsp;·&nbsp;
+    <strong>Last updated:</strong> June 7, 2026
+  </div>
+
+  <!-- 1. Overview -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </span>
+      Overview
+    </h2>
+    <p>
+      KubePilot ("we", "our", or "the app") is a mobile application that lets you connect to and
+      manage Kubernetes clusters — including Amazon EKS clusters — directly from your iOS or
+      Android device.
+    </p>
+    <p>
+      Your privacy is important to us. This policy explains exactly what data the app accesses,
+      how it is used, and where it is stored. The short answer:
+    </p>
+    <div class="highlight">
+      KubePilot stores all credentials and cluster data <strong>locally on your device only</strong>.
+      We do not operate any backend servers, we do not collect analytics, and we do not sell or
+      share your data with any third party.
+    </div>
+  </section>
+
+  <!-- 2. Information we handle -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </span>
+      Information We Handle
+    </h2>
+    <p>
+      The following data is entered by you and used solely to connect to your own infrastructure:
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Purpose</th>
+          <th>Storage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cluster endpoint URL</td>
+          <td>Sending API requests to your Kubernetes cluster</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>CA certificate (base64)</td>
+          <td>TLS verification of the cluster's API server</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>Client certificate &amp; key</td>
+          <td>Mutual TLS authentication (kubeconfig clusters)</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>Bearer / service-account token</td>
+          <td>Kubernetes API authentication</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>AWS Access Key ID &amp; Secret</td>
+          <td>Generating short-lived STS tokens for EKS clusters</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>AWS Session Token (optional)</td>
+          <td>Support for temporary IAM credentials</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>EKS cluster name &amp; region</td>
+          <td>Constructing STS presigned URLs for token generation</td>
+          <td><span class="pill pill-local">Device only</span></td>
+        </tr>
+        <tr>
+          <td>Kubernetes resource data<br><small style="color:var(--muted)">(pods, deployments, logs, etc.)</small></td>
+          <td>Displaying live cluster state in the app UI</td>
+          <td><span class="pill pill-none">In memory only</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top:16px; font-size:0.875rem; color:var(--muted);">
+      All persistent data is stored using the device's local encrypted storage
+      (<code style="color:var(--teal)">AsyncStorage</code>). It never leaves your device except
+      as part of direct API calls to your own cluster or your own AWS account.
+    </p>
+  </section>
+
+  <!-- 3. How data is used -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </span>
+      How Data Is Used
+    </h2>
+    <p>Your data is used exclusively for:</p>
+    <ul>
+      <li>Authenticating to Kubernetes API servers you configure</li>
+      <li>Fetching and displaying live cluster resources (pods, deployments, services, etc.)</li>
+      <li>Performing management actions you explicitly trigger (scale, restart, delete)</li>
+      <li>Generating short-lived EKS bearer tokens via AWS STS — sent only to
+          <strong>your own AWS account</strong></li>
+    </ul>
+    <p>
+      We do <strong>not</strong> use your data for advertising, profiling, analytics, or any
+      purpose beyond the cluster management features visible in the app.
+    </p>
+  </section>
+
+  <!-- 4. Network requests -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </span>
+      Network Requests
+    </h2>
+    <p>The app makes outbound network requests only to endpoints you control or own:</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Destination</th>
+          <th>When</th>
+          <th>What is sent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Your Kubernetes API server</td>
+          <td>Every time you view or act on a cluster resource</td>
+          <td>Your bearer token + the API request</td>
+        </tr>
+        <tr>
+          <td><code style="color:var(--teal)">sts.&lt;region&gt;.amazonaws.com</code></td>
+          <td>EKS connections only — once per request to fetch a 60-second token</td>
+          <td>SigV4-signed presigned URL (no secrets transmitted in plain text)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;">
+      No data is sent to any KubePilot-operated server. There is no telemetry, crash reporting,
+      or analytics SDK included in the app.
+    </p>
+  </section>
+
+  <!-- 5. Data storage & security -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </span>
+      Data Storage &amp; Security
+    </h2>
+    <ul>
+      <li>
+        <strong>Local storage only</strong> — connection profiles, certificates, and AWS credentials
+        are persisted using <code style="color:var(--teal)">AsyncStorage</code> on your device.
+      </li>
+      <li>
+        <strong>OS-level protection</strong> — on both iOS and Android, app data is sandboxed and
+        protected by the operating system's built-in encryption and access controls.
+      </li>
+      <li>
+        <strong>No cloud sync</strong> — we do not sync, back up, or mirror your data to any
+        cloud service.
+      </li>
+      <li>
+        <strong>Short-lived tokens</strong> — EKS tokens are generated fresh for each request and
+        expire after 60 seconds. Long-term AWS credentials remain on your device and are never
+        transmitted as part of the signed request.
+      </li>
+    </ul>
+    <p>
+      We recommend using IAM credentials scoped with least-privilege permissions and, where
+      possible, using short-lived session credentials.
+    </p>
+  </section>
+
+  <!-- 6. Third-party services -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      Third-Party Services
+    </h2>
+    <p>
+      KubePilot does not integrate any third-party analytics, advertising, crash-reporting, or
+      social SDKs.
+    </p>
+    <p>
+      The only external service the app communicates with is <strong>AWS Security Token Service
+      (STS)</strong>, and only when you configure an Amazon EKS cluster. That communication is
+      between your device and your own AWS account — KubePilot is not a party to that data.
+    </p>
+    <p>
+      AWS's own privacy practices are governed by the
+      <a href="https://aws.amazon.com/privacy/" class="contact-link" target="_blank" rel="noopener">
+        AWS Privacy Notice
+      </a>.
+    </p>
+  </section>
+
+  <!-- 7. Children's privacy -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </span>
+      Children's Privacy
+    </h2>
+    <p>
+      KubePilot is a professional developer tool intended for adults. It is not directed at
+      children under the age of 13 (or the applicable age in your jurisdiction). We do not
+      knowingly collect personal information from children. If you believe a child has provided
+      information through the app, please contact us so we can address it.
+    </p>
+  </section>
+
+  <!-- 8. Your rights -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </span>
+      Your Rights &amp; Data Control
+    </h2>
+    <p>
+      Because all data lives exclusively on your device, you have complete control over it:
+    </p>
+    <ul>
+      <li><strong>Delete a connection</strong> — remove any cluster profile from within the app's
+          Settings screen.</li>
+      <li><strong>Delete all data</strong> — uninstalling the app removes all stored credentials
+          and connection profiles from your device.</li>
+      <li><strong>No account required</strong> — KubePilot has no sign-up, no account, and no
+          server-side profile associated with you.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Changes -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.71"/></svg>
+      </span>
+      Changes to This Policy
+    </h2>
+    <p>
+      We may update this Privacy Policy from time to time. When we do, we will revise the
+      "Last updated" date at the top of this page. Significant changes will be noted in the
+      app's release notes. Continued use of KubePilot after a change constitutes acceptance of
+      the updated policy.
+    </p>
+    <p>
+      We encourage you to review this page periodically to stay informed.
+    </p>
+  </section>
+
+  <!-- 10. Contact -->
+  <section>
+    <h2>
+      <span class="section-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </span>
+      Contact Us
+    </h2>
+    <p>
+      If you have any questions or concerns about this Privacy Policy or how your data is handled,
+      please reach out:
+    </p>
+    <p>
+      <strong>Email:</strong>
+      <a href="mailto:waqasarain543@gmail.com" class="contact-link">waqasarain543@gmail.com</a>
+    </p>
+    <p style="margin-top:6px; color:var(--muted); font-size:0.875rem;">
+      We aim to respond to all privacy inquiries within 5 business days.
+    </p>
+  </section>
+
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+  <p>&copy; 2026 KubePilot. All rights reserved.</p>
+  <p style="margin-top:6px;">
+    This policy applies to the KubePilot mobile application on iOS and Android.
+  </p>
+</footer>
+
+</body>
+</html>
