@@ -1,6 +1,6 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
-import { deleteNamespaced, getEvents, getStatefulSet, patchNamespaced } from '@/lib/kubernetesClient';
+import { deleteNamespaced, getControllerRevisions, getEvents, getStatefulSet, patchNamespaced } from '@/lib/kubernetesClient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,6 +14,7 @@ import {
   Database,
   Info,
   RefreshCw,
+  RotateCcw,
   Trash2,
   XCircle,
 } from 'lucide-react-native';
@@ -146,6 +147,48 @@ export default function StatefulSetDetailsScreen() {
     ]);
   };
 
+  const handleRollback = () => {
+    Alert.alert('Rollback StatefulSet', `Roll back "${name}" to the previous revision?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Rollback',
+        onPress: async () => {
+          if (!cfg || !sts) return;
+          setActionLoading('rollback');
+          try {
+            const selector = sts.spec?.selector?.matchLabels ?? {};
+            const labelQuery = Object.entries(selector).map(([k, v]) => `${k}=${v}`).join(',');
+            const crRes = await getControllerRevisions(cfg, namespace, labelQuery);
+            const allCRs: any[] = crRes.data?.items ?? [];
+            const ownedCRs = allCRs.filter((cr: any) =>
+              (cr.metadata?.ownerReferences ?? []).some(
+                (ref: any) => ref.kind === 'StatefulSet' && ref.name === name,
+              ),
+            );
+            ownedCRs.sort((a: any, b: any) => (b.revision ?? 0) - (a.revision ?? 0));
+            if (ownedCRs.length < 2) {
+              Alert.alert('Info', 'No previous revision found to roll back to.');
+              return;
+            }
+            const prevSpec = ownedCRs[1].data?.spec;
+            if (!prevSpec) {
+              Alert.alert('Error', 'Could not read previous revision spec.');
+              return;
+            }
+            await patchNamespaced(cfg, 'statefulsets', namespace, name, { spec: prevSpec });
+            await refetch();
+            queryClient.invalidateQueries({ queryKey: ['statefulsets'] });
+            Alert.alert('Success', 'Rollback initiated successfully.');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Rollback failed');
+          } finally {
+            setActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleCustomScale = async () => {
     const r = parseInt(scaleValue);
     if (isNaN(r) || r < 0) { Alert.alert('Invalid', 'Enter a valid replica count'); return; }
@@ -250,12 +293,27 @@ export default function StatefulSetDetailsScreen() {
             <Text style={styles.actionBtnText}>{actionLoading === 'restart' ? 'Restarting...' : 'Restart'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={[styles.actionBtn, styles.btnAmber, actionLoading === 'rollback' && styles.btnDisabled]}
+            onPress={handleRollback}
+            disabled={!!actionLoading}
+          >
+            <RotateCcw size={16} color="#FFF" />
+            <Text style={styles.actionBtnText}>{actionLoading === 'rollback' ? 'Rolling back...' : 'Rollback'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.actionBtn, styles.btnRed, actionLoading === 'delete' && styles.btnDisabled]}
             onPress={handleDelete}
             disabled={!!actionLoading}
           >
             <Trash2 size={16} color="#FFF" />
             <Text style={styles.actionBtnText}>{actionLoading === 'delete' ? 'Deleting...' : 'Delete'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.btnDark]}
+            onPress={() => navigation.navigate('Logs', { type: 'statefulset', name, namespace })}
+            disabled={!!actionLoading}
+          >
+            <Text style={styles.actionBtnText}>View Logs</Text>
           </TouchableOpacity>
         </View>
 
@@ -409,7 +467,9 @@ const styles = StyleSheet.create({
   btnOrange: { backgroundColor: '#FFB800' },
   btnPurple: { backgroundColor: '#AA66FF' },
   btnCyan: { backgroundColor: '#00D9FF' },
+  btnAmber: { backgroundColor: '#FF9F43' },
   btnRed: { backgroundColor: '#FF5757' },
+  btnDark: { backgroundColor: '#1E2B42' },
   btnDisabled: { opacity: 0.5 },
   actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
   containerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },

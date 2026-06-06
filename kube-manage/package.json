@@ -1,6 +1,6 @@
 {
   "name": "kube-manage",
-  "displayName": "KubeManage",
+  "displayName": "KubePilot",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",

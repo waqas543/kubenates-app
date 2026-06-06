@@ -1,6 +1,6 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
-import { deleteNamespaced, getDeployment, getEvents, patchNamespaced } from '@/lib/kubernetesClient';
+import { deleteNamespaced, getDeployment, getEvents, getReplicaSetsFiltered, patchNamespaced } from '@/lib/kubernetesClient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Info,
   RefreshCw,
+  RotateCcw,
   Trash2,
   XCircle,
 } from 'lucide-react-native';
@@ -127,6 +128,52 @@ export default function DeploymentDetailsScreen() {
     ]);
   };
 
+  const handleRollback = () => {
+    Alert.alert('Rollback Deployment', `Roll back "${name}" to the previous revision?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Rollback',
+        onPress: async () => {
+          if (!cfg || !dep) return;
+          setActionLoading('rollback');
+          try {
+            const selector = dep.spec?.selector?.matchLabels ?? {};
+            const labelQuery = Object.entries(selector).map(([k, v]) => `${k}=${v}`).join(',');
+            const rsRes = await getReplicaSetsFiltered(cfg, namespace, labelQuery);
+            const allRSes: any[] = rsRes.data?.items ?? [];
+            const ownedRSes = allRSes.filter((rs: any) =>
+              (rs.metadata?.ownerReferences ?? []).some(
+                (ref: any) => ref.kind === 'Deployment' && ref.name === name,
+              ),
+            );
+            ownedRSes.sort((a: any, b: any) => {
+              const ra = parseInt(a.metadata?.annotations?.['deployment.kubernetes.io/revision'] ?? '0');
+              const rb = parseInt(b.metadata?.annotations?.['deployment.kubernetes.io/revision'] ?? '0');
+              return rb - ra;
+            });
+            if (ownedRSes.length < 2) {
+              Alert.alert('Info', 'No previous revision found to roll back to.');
+              return;
+            }
+            const template = ownedRSes[1].spec?.template;
+            if (!template) {
+              Alert.alert('Error', 'Could not read previous revision template.');
+              return;
+            }
+            await patchNamespaced(cfg, 'deployments', namespace, name, { spec: { template } });
+            await refetch();
+            queryClient.invalidateQueries({ queryKey: ['deployments'] });
+            Alert.alert('Success', 'Rollback initiated successfully.');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Rollback failed');
+          } finally {
+            setActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleCustomScale = async () => {
     const r = parseInt(scaleValue);
     if (isNaN(r) || r < 0) { Alert.alert('Invalid', 'Enter a valid replica count'); return; }
@@ -229,6 +276,14 @@ export default function DeploymentDetailsScreen() {
           >
             <RefreshCw size={16} color="#FFF" />
             <Text style={styles.actionBtnText}>{actionLoading === 'restart' ? 'Restarting...' : 'Restart'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.btnAmber, actionLoading === 'rollback' && styles.btnDisabled]}
+            onPress={handleRollback}
+            disabled={!!actionLoading}
+          >
+            <RotateCcw size={16} color="#FFF" />
+            <Text style={styles.actionBtnText}>{actionLoading === 'rollback' ? 'Rolling back...' : 'Rollback'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.btnRed, actionLoading === 'delete' && styles.btnDisabled]}
@@ -416,6 +471,7 @@ const styles = StyleSheet.create({
   btnPurple: { backgroundColor: '#AA66FF' },
   btnCyan: { backgroundColor: '#00D9FF' },
   btnRed: { backgroundColor: '#FF5757' },
+  btnAmber: { backgroundColor: '#FF9F43' },
   btnDark: { backgroundColor: '#1E2B42' },
   btnDisabled: { opacity: 0.5 },
   actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },

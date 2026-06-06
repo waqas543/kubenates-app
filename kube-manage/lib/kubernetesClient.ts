@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { NativeModules, Platform } from 'react-native';
+import { generateEksToken } from './eksAuth';
+import type { EksCredentials } from './eksAuth';
 
 const { KubeHttpModule } = NativeModules;
 
@@ -11,7 +13,8 @@ export interface ParsedKubeConfig {
   certificateAuthorityData: string;  // base64 from kubeconfig
   clientCertificateData: string;     // base64 from kubeconfig
   clientKeyData: string;             // base64 from kubeconfig
-  token?: string;                    // optional: use token auth instead of cert auth
+  token?: string;                    // static bearer token (kubeconfig token auth)
+  eksAuth?: EksCredentials;          // present for EKS IAM connections; token is generated per-request
 }
 
 export interface KubeRequestOptions {
@@ -183,8 +186,14 @@ export async function kubeRequest<T = any>(
     ? 'application/merge-patch+json'
     : 'application/json',
   };
-  if (config.token) {
-    headers['Authorization'] = `Bearer ${config.token}`;
+
+  // Resolve bearer token: static token takes precedence; EKS generates one per-request
+  let bearerToken = config.token;
+  if (!bearerToken && config.eksAuth) {
+    bearerToken = await generateEksToken(config.eksAuth);
+  }
+  if (bearerToken) {
+    headers['Authorization'] = `Bearer ${bearerToken}`;
   }
 
   // ── Native path: uses OkHttp with custom CA cert + mTLS support ──
@@ -494,6 +503,53 @@ export async function patchResource(
   body: Record<string, any>
 ) {
   return patchNamespaced(config, resource, namespace, name, body);
+}
+
+/** List pods in a namespace filtered by a label selector */
+export async function getPodsWithSelector(
+  config: ParsedKubeConfig,
+  namespace: string,
+  labelSelector: string,
+) {
+  const qs = labelSelector ? `?labelSelector=${encodeURIComponent(labelSelector)}` : '';
+  return kubeRequest(config, `/api/v1/namespaces/${namespace}/pods${qs}`);
+}
+
+/** Fetch logs for a pod — returns plain-text response */
+export async function getPodLogs(
+  config: ParsedKubeConfig,
+  namespace: string,
+  podName: string,
+  options?: { container?: string; tailLines?: number },
+) {
+  const params: string[] = [];
+  if (options?.container) params.push(`container=${encodeURIComponent(options.container)}`);
+  if (options?.tailLines != null) params.push(`tailLines=${options.tailLines}`);
+  const query = params.length ? `?${params.join('&')}` : '';
+  return kubeRequest<string>(
+    config,
+    `/api/v1/namespaces/${namespace}/pods/${encodeURIComponent(podName)}/log${query}`,
+  );
+}
+
+/** List ControllerRevisions in a namespace — used for StatefulSet and DaemonSet rollback */
+export async function getControllerRevisions(
+  config: ParsedKubeConfig,
+  namespace: string,
+  labelSelector?: string,
+) {
+  const qs = labelSelector ? `?labelSelector=${encodeURIComponent(labelSelector)}` : '';
+  return kubeRequest(config, `/apis/apps/v1/namespaces/${namespace}/controllerrevisions${qs}`);
+}
+
+/** List ReplicaSets in a namespace with optional label selector — used for Deployment rollback */
+export async function getReplicaSetsFiltered(
+  config: ParsedKubeConfig,
+  namespace: string,
+  labelSelector?: string,
+) {
+  const qs = labelSelector ? `?labelSelector=${encodeURIComponent(labelSelector)}` : '';
+  return kubeRequest(config, `/apis/apps/v1/namespaces/${namespace}/replicasets${qs}`);
 }
 
 /** @deprecated Use deleteNamespaced or deleteCluster */

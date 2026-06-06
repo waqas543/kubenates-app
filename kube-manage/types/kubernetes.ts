@@ -25,13 +25,28 @@ export type kubeConfigContexts = {
   };
 };
 
+export type kubeConfigExec = {
+  apiVersion: string;
+  command: string;
+  args?: string[];
+};
+
 export type kubeConfigUsers = {
   name: string;
   user: {
     token?: string;
     'client-certificate-data'?: string;
     'client-key-data'?: string;
+    exec?: kubeConfigExec;
   };
+}
+
+export interface EksConnectionConfig {
+  clusterName: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
 }
 
 export interface ClusterConnection {
@@ -39,10 +54,14 @@ export interface ClusterConnection {
   server: string;
   namespace: string;
   token?: string;
-  rawConfig: string;
+  rawConfig?: string;
   caCertificate?: string;
   clientCertificate?: string;
   clientKey?: string;
+  /** Discriminates between kubeconfig and EKS IAM connections */
+  connectionType?: 'kubeconfig' | 'eks';
+  /** Present only when connectionType === 'eks' */
+  eks?: EksConnectionConfig;
 }
 
 export type PodStatus = 'Running' | 'Pending' | 'Failed' | 'Succeeded' | 'Unknown';

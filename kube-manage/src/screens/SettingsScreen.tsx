@@ -2,7 +2,7 @@ import { useKubernetes } from '@/context/KubernetesContext';
 import type { ClusterConnection } from '@/types/kubernetes';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CheckCircle2, Plus, Server, Settings as SettingsIcon, Trash2 } from 'lucide-react-native';
+import { CheckCircle2, Cloud, Plus, Server, Settings as SettingsIcon, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -33,12 +33,23 @@ export default function SettingsScreen() {
       >
         <View style={styles.connectionHeader}>
           <View style={styles.connectionLeft}>
-            <View style={[styles.connectionIcon, isActive && styles.connectionIconActive]}>
-              <Server size={18} color={isActive ? '#00D9FF' : '#8B92A8'} />
+            <View style={[
+              styles.connectionIcon,
+              isActive && styles.connectionIconActive,
+              item.connectionType === 'eks' && styles.connectionIconEks,
+            ]}>
+              {item.connectionType === 'eks'
+                ? <Cloud size={18} color={isActive ? '#FF9F43' : '#FF9F43'} />
+                : <Server size={18} color={isActive ? '#00D9FF' : '#8B92A8'} />}
             </View>
             <View style={styles.connectionInfo}>
               <View style={styles.connectionNameRow}>
                 <Text style={styles.connectionName}>{item.name}</Text>
+                {item.connectionType === 'eks' && (
+                  <View style={styles.eksBadge}>
+                    <Text style={styles.eksBadgeText}>EKS</Text>
+                  </View>
+                )}
                 {isActive && <CheckCircle2 size={16} color="#00FF88" />}
               </View>
               <Text style={styles.connectionServer} numberOfLines={1}>{item.server}</Text>
@@ -55,8 +66,16 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.connectionDetail}>
             <Text style={styles.detailLabel}>Auth</Text>
-            <Text style={styles.detailValue}>{item.token ? 'Token' : 'Certificate'}</Text>
+            <Text style={[styles.detailValue, item.connectionType === 'eks' && styles.detailValueEks]}>
+              {item.connectionType === 'eks' ? 'EKS / IAM' : item.token ? 'Token' : 'Certificate'}
+            </Text>
           </View>
+          {item.connectionType === 'eks' && item.eks && (
+            <View style={styles.connectionDetail}>
+              <Text style={styles.detailLabel}>Region</Text>
+              <Text style={styles.detailValue}>{item.eks.region}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -125,6 +144,10 @@ const styles = StyleSheet.create({
   connectionLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, gap: 12 },
   connectionIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#0D1219', alignItems: 'center', justifyContent: 'center' },
   connectionIconActive: { backgroundColor: '#00D9FF20' },
+  connectionIconEks: { backgroundColor: '#FF9F4320' },
+  eksBadge: { backgroundColor: '#FF9F4330', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#FF9F43' },
+  eksBadgeText: { fontSize: 10, fontWeight: '700' as const, color: '#FF9F43' },
+  detailValueEks: { color: '#FF9F43' },
   connectionInfo: { flex: 1 },
   connectionNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   connectionName: { fontSize: 16, fontWeight: '600' as const, color: '#FFFFFF' },

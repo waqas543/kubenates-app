@@ -2,6 +2,15 @@ import type { ClusterConnection } from '@/types/kubernetes';
 import type { ParsedKubeConfig } from '@/lib/kubernetesClient';
 
 export function toParsedConfig(conn: ClusterConnection): ParsedKubeConfig {
+  if (conn.connectionType === 'eks' && conn.eks) {
+    return {
+      server: conn.server,
+      certificateAuthorityData: conn.caCertificate ?? '',
+      clientCertificateData: '',
+      clientKeyData: '',
+      eksAuth: conn.eks,
+    };
+  }
   return {
     server: conn.server,
     certificateAuthorityData: conn.caCertificate ?? '',
