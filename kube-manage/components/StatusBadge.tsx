@@ -1,5 +1,6 @@
 import type { PodStatus } from '@/types/kubernetes';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 interface StatusBadgeProps {
   status: PodStatus | 'Ready' | 'NotReady' | 'Active' | 'Terminating';
@@ -7,6 +8,32 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, size = 'small' }: StatusBadgeProps) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const isRunning = status === 'Running' || status === 'Ready' || status === 'Active';
+
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.6,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [isRunning]);
+
   const getStatusColor = () => {
     switch (status) {
       case 'Running':
@@ -38,7 +65,17 @@ export function StatusBadge({ status, size = 'small' }: StatusBadgeProps) {
         isMedium && styles.badgeMedium,
       ]}
     >
-      <View style={[styles.dot, { backgroundColor: colors.text }]} />
+      <View style={styles.dotContainer}>
+        {isRunning && (
+          <Animated.View
+            style={[
+              styles.dotPulse,
+              { backgroundColor: colors.text, transform: [{ scale: pulseAnim }] },
+            ]}
+          />
+        )}
+        <View style={[styles.dot, { backgroundColor: colors.text }]} />
+      </View>
       <Text style={[styles.text, { color: colors.text }, isMedium && styles.textMedium]}>
         {status}
       </Text>
@@ -61,10 +98,24 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 8,
   },
+  dotContainer: {
+    width: 6,
+    height: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    position: 'absolute',
+  },
+  dotPulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    position: 'absolute',
+    opacity: 0.4,
   },
   text: {
     fontSize: 11,

@@ -8,7 +8,6 @@ export const API_BASE_URL = LOCALHOST;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
-  console.log('request url', url);
   const res = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',

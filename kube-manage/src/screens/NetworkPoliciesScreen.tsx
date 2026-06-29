@@ -1,9 +1,11 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getNetworkPolicies } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Shield } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 function toAge(ts?: string): string {
@@ -21,6 +23,8 @@ type NetPolicy = { name: string; namespace: string; podSelector: string; ingress
 export default function NetworkPoliciesScreen() {
   const { activeConnection, activeNamespace } = useKubernetes();
   const [search, setSearch] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: policies = [], isLoading } = useQuery<NetPolicy[]>({
     queryKey: ['networkpolicies', activeConnection?.name, activeNamespace],
@@ -52,8 +56,8 @@ export default function NetworkPoliciesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Search size={16} color="#8B92A8" />
-          <TextInput style={styles.searchInput} placeholder="Search policies..." placeholderTextColor="#8B92A8" value={search} onChangeText={setSearch} />
+          <Search size={16} color={colors.textSecondary} />
+          <TextInput style={styles.searchInput} placeholder="Search policies..." placeholderTextColor={colors.textSecondary} value={search} onChangeText={setSearch} />
         </View>
       </View>
       <View style={styles.statsBar}>
@@ -87,7 +91,7 @@ export default function NetworkPoliciesScreen() {
             </View>
           )}
           ListEmptyComponent={
-            <View style={styles.empty}><Shield size={40} color="#1E2B42" /><Text style={styles.emptyText}>No network policies</Text></View>
+            <View style={styles.empty}><Shield size={40} color={colors.border} /><Text style={styles.emptyText}>No network policies</Text></View>
           }
         />
       )}
@@ -95,29 +99,31 @@ export default function NetworkPoliciesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#162033', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  statsBar: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0D1219' },
-  statsText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  loader: { marginTop: 40 },
-  list: { padding: 16 },
-  card: { backgroundColor: '#162033', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1E2B42' },
-  cardMain: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
-  icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#9D6CFF20', alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 2 },
-  ns: { fontSize: 12, color: '#8B92A8' },
-  badges: { flexDirection: 'row', gap: 4 },
-  ingressBadge: { backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  egressBadge: { backgroundColor: '#AA66FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  badgeText: { fontSize: 10, color: '#FFFFFF', fontWeight: '600' as const },
-  selectorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  selectorLabel: { fontSize: 12, color: '#8B92A8', fontWeight: '600' as const },
-  selectorValue: { fontSize: 12, color: '#FFFFFF', flex: 1 },
-  age: { fontSize: 11, color: '#8B92A8' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 15, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: c.text },
+    statsBar: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.bgSecondary },
+    statsText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    loader: { marginTop: 40 },
+    list: { padding: 16 },
+    card: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: c.border },
+    cardMain: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
+    icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#9D6CFF20', alignItems: 'center', justifyContent: 'center' },
+    info: { flex: 1 },
+    name: { fontSize: 14, fontWeight: '600' as const, color: c.text, marginBottom: 2 },
+    ns: { fontSize: 12, color: c.textSecondary },
+    badges: { flexDirection: 'row', gap: 4 },
+    ingressBadge: { backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    egressBadge: { backgroundColor: '#AA66FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    badgeText: { fontSize: 10, color: c.text, fontWeight: '600' as const },
+    selectorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    selectorLabel: { fontSize: 12, color: c.textSecondary, fontWeight: '600' as const },
+    selectorValue: { fontSize: 12, color: c.text, flex: 1 },
+    age: { fontSize: 11, color: c.textSecondary },
+    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: c.textSecondary },
+  });
+}

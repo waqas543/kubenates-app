@@ -1,6 +1,8 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { deleteNamespaced, getDeployment, getEvents, getReplicaSetsFiltered, patchNamespaced } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,7 +20,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -35,6 +37,16 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'DeploymentDetails'>;
 
+function toAge(ts?: string): string {
+  if (!ts) return '-';
+  const d = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+  if (d > 0) return `${d}d`;
+  const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3600000);
+  if (h > 0) return `${h}h`;
+  const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  return m > 0 ? `${m}m` : `${Math.floor((Date.now() - new Date(ts).getTime()) / 1000)}s`;
+}
+
 export default function DeploymentDetailsScreen() {
   const navigation = useNavigation<NavProp>();
   const { name, namespace } = useRoute<RouteType>().params;
@@ -43,6 +55,8 @@ export default function DeploymentDetailsScreen() {
   const [scaleModal, setScaleModal] = useState(false);
   const [scaleValue, setScaleValue] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: dep, isLoading, refetch } = useQuery({
     queryKey: ['deployment-detail', namespace, name],
@@ -182,6 +196,15 @@ export default function DeploymentDetailsScreen() {
     await handleScale(r);
   };
 
+  function DetailRow({ label, value }: { label: string; value: string }) {
+    return (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -194,7 +217,7 @@ export default function DeploymentDetailsScreen() {
   if (!dep) {
     return (
       <View style={styles.center}>
-        <AlertCircle size={48} color="#FF5757" />
+        <AlertCircle size={48} color={colors.accentRed} />
         <Text style={styles.errorText}>Deployment not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>Go Back</Text>
@@ -369,7 +392,7 @@ export default function DeploymentDetailsScreen() {
                   <View style={styles.eventTop}>
                     {isWarning
                       ? <AlertTriangle size={14} color="#FFB86C" />
-                      : <Info size={14} color="#00D9FF" />}
+                      : <Info size={14} color={colors.accent} />}
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventReason}>{e.reason ?? '-'}</Text>
                       <Text style={styles.eventMessage} numberOfLines={2}>{e.message ?? '-'}</Text>
@@ -399,7 +422,7 @@ export default function DeploymentDetailsScreen() {
               onChangeText={setScaleValue}
               keyboardType="number-pad"
               placeholder="Number of replicas"
-              placeholderTextColor="#8B92A8"
+              placeholderTextColor={colors.textSecondary}
               autoFocus
             />
             <View style={styles.modalBtns}>
@@ -417,99 +440,82 @@ export default function DeploymentDetailsScreen() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
-    </View>
-  );
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: c.textSecondary, fontSize: 14 },
+    errorText: { color: c.accentRed, fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
+    backBtn: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
+    backBtnText: { color: '#000', fontWeight: '600' as const },
+    content: { padding: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgCard, borderRadius: 12, padding: 16, marginBottom: 20 },
+    headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFB80020', alignItems: 'center', justifyContent: 'center' },
+    headerInfo: { flex: 1 },
+    title: { fontSize: 18, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    subtitle: { fontSize: 13, color: c.textSecondary },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    statusGreen: { backgroundColor: '#00FF8820' },
+    statusOrange: { backgroundColor: '#FFB80020' },
+    statusText: { fontSize: 12, fontWeight: '700' as const, color: c.text },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: c.text, marginBottom: 12 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+    gridCard: { flex: 1, minWidth: '47%', backgroundColor: c.bgCard, borderRadius: 10, padding: 12 },
+    gridLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 6, fontWeight: '600' as const },
+    gridValue: { fontSize: 18, fontWeight: '700' as const, color: c.text },
+    green: { color: '#00FF88' },
+    detailCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.bgSecondary },
+    detailLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, maxWidth: '60%' },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, minWidth: '47%', flex: 1 },
+    btnBlue: { backgroundColor: '#00D9FF' },
+    btnOrange: { backgroundColor: '#FFB800' },
+    btnPurple: { backgroundColor: '#AA66FF' },
+    btnCyan: { backgroundColor: '#00D9FF' },
+    btnRed: { backgroundColor: '#FF5757' },
+    btnAmber: { backgroundColor: '#FF9F43' },
+    btnDark: { backgroundColor: c.border },
+    btnDisabled: { opacity: 0.5 },
+    actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
+    containerCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8 },
+    containerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    containerName: { fontSize: 14, fontWeight: '600' as const, color: c.text },
+    portRow: { flexDirection: 'row', gap: 4 },
+    portBadge: { fontSize: 10, color: '#00D9FF', backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    containerImage: { fontSize: 12, color: c.textSecondary, marginBottom: 6 },
+    resourceRow: { flexDirection: 'row', gap: 12 },
+    resourceText: { fontSize: 11, color: c.textSecondary },
+    conditionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 8, padding: 12, marginBottom: 6 },
+    conditionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    conditionType: { fontSize: 13, fontWeight: '600' as const, color: c.text },
+    conditionTime: { fontSize: 11, color: c.textSecondary },
+    tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tag: { backgroundColor: c.bgCard, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.border },
+    tagText: { fontSize: 11, color: c.textSecondary },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
+    modalBox: { backgroundColor: c.bgCard, borderRadius: 16, padding: 24 },
+    modalTitle: { fontSize: 20, fontWeight: '700' as const, color: c.text, marginBottom: 6 },
+    modalSub: { fontSize: 13, color: c.textSecondary, marginBottom: 20 },
+    modalInput: { backgroundColor: c.bgSecondary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: c.text, borderWidth: 1, borderColor: c.border, marginBottom: 20 },
+    modalBtns: { flexDirection: 'row', gap: 12 },
+    modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+    modalBtnCancel: { backgroundColor: c.border },
+    modalBtnConfirm: { backgroundColor: c.accent },
+    modalBtnText: { fontSize: 15, fontWeight: '600' as const, color: '#FFFFFF' },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB86C40' },
+    eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
+    eventInfo: { flex: 1 },
+    eventReason: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
+    eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
+    eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
+    eventAge: { fontSize: 11, color: c.textSecondary },
+    eventCount: { fontSize: 10, color: c.textSecondary },
+  });
 }
-
-function toAge(ts?: string): string {
-  if (!ts) return '-';
-  const d = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
-  if (d > 0) return `${d}d`;
-  const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3600000);
-  if (h > 0) return `${h}h`;
-  const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-  return m > 0 ? `${m}m` : `${Math.floor((Date.now() - new Date(ts).getTime()) / 1000)}s`;
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  center: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#8B92A8', fontSize: 14 },
-  errorText: { color: '#FF5757', fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
-  backBtn: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
-  backBtnText: { color: '#000', fontWeight: '600' as const },
-  content: { padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#162033', borderRadius: 12, padding: 16, marginBottom: 20 },
-  headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFB80020', alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#8B92A8' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusGreen: { backgroundColor: '#00FF8820' },
-  statusOrange: { backgroundColor: '#FFB80020' },
-  statusText: { fontSize: 12, fontWeight: '700' as const, color: '#FFFFFF' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 12 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  gridCard: { flex: 1, minWidth: '47%', backgroundColor: '#162033', borderRadius: 10, padding: 12 },
-  gridLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 6, fontWeight: '600' as const },
-  gridValue: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF' },
-  green: { color: '#00FF88' },
-  detailCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0D1219' },
-  detailLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', maxWidth: '60%' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, minWidth: '47%', flex: 1 },
-  btnBlue: { backgroundColor: '#00D9FF' },
-  btnOrange: { backgroundColor: '#FFB800' },
-  btnPurple: { backgroundColor: '#AA66FF' },
-  btnCyan: { backgroundColor: '#00D9FF' },
-  btnRed: { backgroundColor: '#FF5757' },
-  btnAmber: { backgroundColor: '#FF9F43' },
-  btnDark: { backgroundColor: '#1E2B42' },
-  btnDisabled: { opacity: 0.5 },
-  actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
-  containerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },
-  containerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  containerName: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF' },
-  portRow: { flexDirection: 'row', gap: 4 },
-  portBadge: { fontSize: 10, color: '#00D9FF', backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  containerImage: { fontSize: 12, color: '#8B92A8', marginBottom: 6 },
-  resourceRow: { flexDirection: 'row', gap: 12 },
-  resourceText: { fontSize: 11, color: '#8B92A8' },
-  conditionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#162033', borderRadius: 8, padding: 12, marginBottom: 6 },
-  conditionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  conditionType: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
-  conditionTime: { fontSize: 11, color: '#8B92A8' },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#162033', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#1E2B42' },
-  tagText: { fontSize: 11, color: '#8B92A8' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
-  modalBox: { backgroundColor: '#162033', borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 6 },
-  modalSub: { fontSize: 13, color: '#8B92A8', marginBottom: 20 },
-  modalInput: { backgroundColor: '#0D1219', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: '#FFFFFF', borderWidth: 1, borderColor: '#1E2B42', marginBottom: 20 },
-  modalBtns: { flexDirection: 'row', gap: 12 },
-  modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  modalBtnCancel: { backgroundColor: '#1E2B42' },
-  modalBtnConfirm: { backgroundColor: '#00D9FF' },
-  modalBtnText: { fontSize: 15, fontWeight: '600' as const, color: '#FFFFFF' },
-  eventCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1E2B42' },
-  eventCardWarning: { borderColor: '#FFB86C40' },
-  eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
-  eventInfo: { flex: 1 },
-  eventReason: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  eventMessage: { fontSize: 12, color: '#8B92A8', lineHeight: 17 },
-  eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
-  eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
-  eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
-  eventAge: { fontSize: 11, color: '#8B92A8' },
-  eventCount: { fontSize: 10, color: '#8B92A8' },
-});

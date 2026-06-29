@@ -1,12 +1,14 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getConfigMap, getEvents } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, FileText, Info } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -25,19 +27,20 @@ function toAge(ts?: string): string {
 
 const MAX_VALUE_LENGTH = 200;
 
-function DataEntry({ keyName, value }: { keyName: string; value: string }) {
+function DataEntry({ keyName, value, colors }: { keyName: string; value: string; colors: AppColors }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = value.length > MAX_VALUE_LENGTH;
   const displayValue = isLong && !expanded ? value.slice(0, MAX_VALUE_LENGTH) + '...' : value;
+  const eStyles = useMemo(() => createEntryStyles(colors), [colors]);
 
   return (
-    <View style={entryStyles.container}>
-      <Text style={entryStyles.key}>{keyName}</Text>
-      <View style={entryStyles.valueBox}>
-        <Text style={entryStyles.value}>{displayValue}</Text>
+    <View style={eStyles.container}>
+      <Text style={eStyles.key}>{keyName}</Text>
+      <View style={eStyles.valueBox}>
+        <Text style={eStyles.value}>{displayValue}</Text>
         {isLong && (
-          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={entryStyles.toggleBtn}>
-            <Text style={entryStyles.toggleText}>{expanded ? 'Show less' : 'Show more'}</Text>
+          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={eStyles.toggleBtn}>
+            <Text style={eStyles.toggleText}>{expanded ? 'Show less' : 'Show more'}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -45,19 +48,23 @@ function DataEntry({ keyName, value }: { keyName: string; value: string }) {
   );
 }
 
-const entryStyles = StyleSheet.create({
-  container: { marginBottom: 14 },
-  key: { fontSize: 13, fontWeight: '700' as const, color: '#00D9FF', marginBottom: 6 },
-  valueBox: { backgroundColor: '#0D1219', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#1E2B42' },
-  value: { fontSize: 12, color: '#FFFFFF', fontFamily: 'monospace', lineHeight: 18 },
-  toggleBtn: { marginTop: 8, alignSelf: 'flex-start' },
-  toggleText: { fontSize: 12, color: '#00D9FF', fontWeight: '600' as const },
-});
+function createEntryStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { marginBottom: 14 },
+    key: { fontSize: 13, fontWeight: '700' as const, color: c.accent, marginBottom: 6 },
+    valueBox: { backgroundColor: c.bgSecondary, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: c.border },
+    value: { fontSize: 12, color: c.text, fontFamily: 'monospace', lineHeight: 18 },
+    toggleBtn: { marginTop: 8, alignSelf: 'flex-start' },
+    toggleText: { fontSize: 12, color: c.accent, fontWeight: '600' as const },
+  });
+}
 
 export default function ConfigMapDetailsScreen() {
   const navigation = useNavigation<NavProp>();
   const { name, namespace } = useRoute<RouteType>().params;
   const { activeConnection } = useKubernetes();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: cm, isLoading } = useQuery({
     queryKey: ['configmap-detail', namespace, name],
@@ -87,7 +94,7 @@ export default function ConfigMapDetailsScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#00D9FF" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Loading configmap...</Text>
       </View>
     );
@@ -96,7 +103,7 @@ export default function ConfigMapDetailsScreen() {
   if (!cm) {
     return (
       <View style={styles.center}>
-        <AlertCircle size={48} color="#FF5757" />
+        <AlertCircle size={48} color={colors.accentRed} />
         <Text style={styles.errorText}>ConfigMap not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>Go Back</Text>
@@ -116,7 +123,7 @@ export default function ConfigMapDetailsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <FileText size={24} color="#00D9FF" />
+            <FileText size={24} color={colors.accent} />
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.title} numberOfLines={2}>{name}</Text>
@@ -155,12 +162,12 @@ export default function ConfigMapDetailsScreen() {
           <Text style={styles.sectionTitle}>Data</Text>
           {dataKeys.length === 0 ? (
             <View style={styles.emptyState}>
-              <FileText size={32} color="#1E2B42" />
+              <FileText size={32} color={colors.border} />
               <Text style={styles.emptyStateText}>No data entries</Text>
             </View>
           ) : (
             dataKeys.map((key) => (
-              <DataEntry key={key} keyName={key} value={data[key]} />
+              <DataEntry key={key} keyName={key} value={data[key]} colors={colors} />
             ))
           )}
         </View>
@@ -191,7 +198,7 @@ export default function ConfigMapDetailsScreen() {
                   <View style={styles.eventTop}>
                     {isWarning
                       ? <AlertTriangle size={14} color="#FFB86C" />
-                      : <Info size={14} color="#00D9FF" />}
+                      : <Info size={14} color={colors.accent} />}
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventReason}>{e.reason ?? '-'}</Text>
                       <Text style={styles.eventMessage} numberOfLines={2}>{e.message ?? '-'}</Text>
@@ -212,43 +219,45 @@ export default function ConfigMapDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  center: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#8B92A8', fontSize: 14 },
-  errorText: { color: '#FF5757', fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
-  backBtn: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
-  backBtnText: { color: '#000', fontWeight: '600' as const },
-  content: { padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#162033', borderRadius: 12, padding: 16, marginBottom: 20 },
-  headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#00D9FF20', alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#8B92A8' },
-  countBadge: { backgroundColor: '#00D9FF20', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  countBadgeText: { fontSize: 12, fontWeight: '700' as const, color: '#00D9FF' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 12 },
-  detailCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0D1219' },
-  noBorder: { borderBottomWidth: 0 },
-  detailLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', maxWidth: '60%' },
-  emptyState: { alignItems: 'center', paddingVertical: 32, gap: 10, backgroundColor: '#162033', borderRadius: 10 },
-  emptyStateText: { fontSize: 14, color: '#8B92A8' },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#162033', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#1E2B42' },
-  tagText: { fontSize: 11, color: '#8B92A8' },
-  eventCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1E2B42' },
-  eventCardWarning: { borderColor: '#FFB86C40' },
-  eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
-  eventInfo: { flex: 1 },
-  eventReason: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  eventMessage: { fontSize: 12, color: '#8B92A8', lineHeight: 17 },
-  eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
-  eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
-  eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
-  eventAge: { fontSize: 11, color: '#8B92A8' },
-  eventCount: { fontSize: 10, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: c.textSecondary, fontSize: 14 },
+    errorText: { color: c.accentRed, fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
+    backBtn: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
+    backBtnText: { color: '#000', fontWeight: '600' as const },
+    content: { padding: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgCard, borderRadius: 12, padding: 16, marginBottom: 20 },
+    headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: `${c.accent}20`, alignItems: 'center', justifyContent: 'center' },
+    headerInfo: { flex: 1 },
+    title: { fontSize: 18, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    subtitle: { fontSize: 13, color: c.textSecondary },
+    countBadge: { backgroundColor: `${c.accent}20`, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    countBadgeText: { fontSize: 12, fontWeight: '700' as const, color: c.accent },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: c.text, marginBottom: 12 },
+    detailCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.bgSecondary },
+    noBorder: { borderBottomWidth: 0 },
+    detailLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, maxWidth: '60%' },
+    emptyState: { alignItems: 'center', paddingVertical: 32, gap: 10, backgroundColor: c.bgCard, borderRadius: 10 },
+    emptyStateText: { fontSize: 14, color: c.textSecondary },
+    tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tag: { backgroundColor: c.bgCard, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.border },
+    tagText: { fontSize: 11, color: c.textSecondary },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB86C40' },
+    eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
+    eventInfo: { flex: 1 },
+    eventReason: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
+    eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
+    eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
+    eventAge: { fontSize: 11, color: c.textSecondary },
+    eventCount: { fontSize: 10, color: c.textSecondary },
+  });
+}

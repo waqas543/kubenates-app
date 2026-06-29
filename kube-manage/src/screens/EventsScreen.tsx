@@ -1,9 +1,11 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getEvents } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertTriangle, Info, Search } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 function toAge(ts?: string): string {
@@ -19,6 +21,8 @@ function toAge(ts?: string): string {
 export default function EventsScreen() {
   const { activeConnection, activeNamespace } = useKubernetes();
   const [search, setSearch] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', activeConnection?.name, activeNamespace],
@@ -59,7 +63,7 @@ export default function EventsScreen() {
           <View style={styles.iconWrap}>
             {isWarning
               ? <AlertTriangle size={16} color="#FFB86C" />
-              : <Info size={16} color="#00D9FF" />}
+              : <Info size={16} color={colors.accent} />}
           </View>
           <View style={styles.info}>
             <Text style={styles.reason} numberOfLines={1}>{item.reason ?? '-'}</Text>
@@ -89,11 +93,11 @@ export default function EventsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Search size={16} color="#8B92A8" />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search events..."
-            placeholderTextColor="#8B92A8"
+            placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
           />
@@ -115,12 +119,12 @@ export default function EventsScreen() {
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.empty}>
-              <Activity size={40} color="#1E2B42" />
+              <Activity size={40} color={colors.border} />
               <Text style={styles.emptyText}>Loading events...</Text>
             </View>
           ) : (
             <View style={styles.empty}>
-              <Activity size={40} color="#1E2B42" />
+              <Activity size={40} color={colors.border} />
               <Text style={styles.emptyText}>No events found</Text>
             </View>
           )
@@ -130,30 +134,32 @@ export default function EventsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#162033', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0D1219' },
-  statsText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  warnText: { color: '#FFB86C' },
-  list: { padding: 16 },
-  card: { backgroundColor: '#162033', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1E2B42' },
-  cardWarning: { borderColor: '#FFB86C30' },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  iconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#0D1219', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  info: { flex: 1 },
-  reason: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  object: { fontSize: 12, color: '#8B92A8' },
-  metaRight: { alignItems: 'flex-end', gap: 4 },
-  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
-  badgeWarning: { backgroundColor: '#FFB86C25' },
-  badgeNormal: { backgroundColor: '#00D9FF20' },
-  typeText: { fontSize: 10, fontWeight: '700' as const, color: '#FFFFFF' },
-  age: { fontSize: 11, color: '#8B92A8' },
-  message: { fontSize: 12, color: '#8B92A8', lineHeight: 18 },
-  count: { fontSize: 11, color: '#8B92A8', marginTop: 4, alignSelf: 'flex-end' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 15, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: c.text },
+    statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.bgSecondary },
+    statsText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    warnText: { color: '#FFB86C' },
+    list: { padding: 16 },
+    card: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: c.border },
+    cardWarning: { borderColor: '#FFB86C30' },
+    cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+    iconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+    info: { flex: 1 },
+    reason: { fontSize: 14, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    object: { fontSize: 12, color: c.textSecondary },
+    metaRight: { alignItems: 'flex-end', gap: 4 },
+    typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
+    badgeWarning: { backgroundColor: '#FFB86C25' },
+    badgeNormal: { backgroundColor: '#00D9FF20' },
+    typeText: { fontSize: 10, fontWeight: '700' as const, color: c.text },
+    age: { fontSize: 11, color: c.textSecondary },
+    message: { fontSize: 12, color: c.textSecondary, lineHeight: 18 },
+    count: { fontSize: 11, color: c.textSecondary, marginTop: 4, alignSelf: 'flex-end' },
+    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: c.textSecondary },
+  });
+}

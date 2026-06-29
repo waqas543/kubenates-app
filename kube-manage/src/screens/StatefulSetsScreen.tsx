@@ -1,11 +1,14 @@
+import { AnimatedIcon } from '@/components/AnimatedIcon';
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getStatefulSets } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Database, Search } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -32,6 +35,8 @@ export default function StatefulSetsScreen() {
   const navigation = useNavigation<NavProp>();
   const { activeConnection, activeNamespace } = useKubernetes();
   const [search, setSearch] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: statefulSets = [], isLoading } = useQuery<StatefulSetItem[]>({
     queryKey: ['statefulsets', activeConnection?.name, activeNamespace],
@@ -65,14 +70,16 @@ export default function StatefulSetsScreen() {
         <View style={styles.cardMain}>
           <View style={styles.cardLeft}>
             <View style={styles.icon}>
-              <Database size={16} color="#00FF88" />
+              <AnimatedIcon type="bounce">
+                <Database size={16} color="#00FF88" />
+              </AnimatedIcon>
             </View>
             <View style={styles.info}>
               <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.ns}>{item.namespace}</Text>
             </View>
           </View>
-          <ChevronRight size={18} color="#8B92A8" />
+          <ChevronRight size={18} color={colors.textSecondary} />
         </View>
         <View style={styles.cardDetails}>
           <View style={styles.detail}>
@@ -92,11 +99,11 @@ export default function StatefulSetsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Search size={16} color="#8B92A8" />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search statefulsets..."
-            placeholderTextColor="#8B92A8"
+            placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
           />
@@ -123,7 +130,7 @@ export default function StatefulSetsScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Database size={40} color="#1E2B42" />
+              <Database size={40} color={colors.border} />
               <Text style={styles.emptyText}>No statefulsets found</Text>
             </View>
           }
@@ -133,27 +140,29 @@ export default function StatefulSetsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#162033', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0D1219' },
-  statsText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  loader: { marginTop: 40 },
-  list: { padding: 16 },
-  card: { backgroundColor: '#162033', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#1E2B42' },
-  cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
-  icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#00FF8820', alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  ns: { fontSize: 12, color: '#8B92A8' },
-  cardDetails: { flexDirection: 'row', gap: 12 },
-  detail: { flex: 1 },
-  detailLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 4, fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' as const },
-  green: { color: '#00FF88' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 15, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: c.text },
+    statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.bgSecondary },
+    statsText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    loader: { marginTop: 40 },
+    list: { padding: 16 },
+    card: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: c.border },
+    cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+    icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#00FF8820', alignItems: 'center', justifyContent: 'center' },
+    info: { flex: 1 },
+    name: { fontSize: 15, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    ns: { fontSize: 12, color: c.textSecondary },
+    cardDetails: { flexDirection: 'row', gap: 12 },
+    detail: { flex: 1 },
+    detailLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 4, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, fontWeight: '600' as const },
+    green: { color: '#00FF88' },
+    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: c.textSecondary },
+  });
+}

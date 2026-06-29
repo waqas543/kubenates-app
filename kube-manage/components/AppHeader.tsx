@@ -1,4 +1,6 @@
 import { useKubernetes } from '@/context/KubernetesContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { ChevronDown, Menu, RefreshCw } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
@@ -25,6 +27,8 @@ export function AppHeader({ onMenuPress, showMenu }: AppHeaderProps) {
     namespaces,
     refetchAll,
   } = useKubernetes();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [reloadBusy, setReloadBusy] = useState(false);
 
@@ -54,7 +58,7 @@ export function AppHeader({ onMenuPress, showMenu }: AppHeaderProps) {
     <View style={styles.container}>
       {showMenu && (
         <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress}>
-          <Menu size={20} color="#FFFFFF" />
+          <Menu size={20} color={colors.text} />
         </TouchableOpacity>
       )}
 
@@ -70,9 +74,9 @@ export function AppHeader({ onMenuPress, showMenu }: AppHeaderProps) {
         accessibilityLabel="Reload cluster data"
       >
         {reloadBusy ? (
-          <ActivityIndicator size="small" color="#00D9FF" />
+          <ActivityIndicator size="small" color={colors.accent} />
         ) : (
-          <RefreshCw size={18} color={activeConnection ? '#00D9FF' : '#4A5568'} />
+          <RefreshCw size={18} color={activeConnection ? colors.accent : colors.textMuted} />
         )}
       </TouchableOpacity>
 
@@ -83,7 +87,7 @@ export function AppHeader({ onMenuPress, showMenu }: AppHeaderProps) {
         disabled={!activeConnection}
       >
         <Text style={styles.nsValue} numberOfLines={1}>{label}</Text>
-        <ChevronDown size={13} color="#8B92A8" />
+        <ChevronDown size={13} color={colors.textSecondary} />
       </TouchableOpacity>
 
       <Modal
@@ -128,101 +132,103 @@ export function AppHeader({ onMenuPress, showMenu }: AppHeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  menuBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#162033',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contextName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#FFFFFF',
-    minWidth: 0,
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#162033',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#1E2B42',
-  },
-  iconBtnDisabled: {
-    opacity: 0.45,
-  },
-  nsSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#162033',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#1E2B42',
-    maxWidth: 148,
-  },
-  nsSelectorDisabled: {
-    opacity: 0.45,
-  },
-  nsValue: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    flexShrink: 1,
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-start',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalPanel: {
-    marginTop: 4,
-    marginHorizontal: 12,
-    maxHeight: 340,
-    backgroundColor: '#162033',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1E2B42',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 12,
-  },
-  modalTitle: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: '#8B92A8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0D1219',
-  },
-  modalScroll: {
-    maxHeight: 300,
-  },
-  dropdownItem: { paddingHorizontal: 14, paddingVertical: 12 },
-  dropdownItemActive: { backgroundColor: '#00D9FF20' },
-  dropdownText: { fontSize: 14, color: '#8B92A8' },
-  dropdownTextActive: { color: '#FFFFFF', fontWeight: '600' as const },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    menuBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: c.bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    contextName: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '700' as const,
+      color: c.text,
+      minWidth: 0,
+    },
+    iconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    iconBtnDisabled: {
+      opacity: 0.45,
+    },
+    nsSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: c.bgCard,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      maxWidth: 148,
+    },
+    nsSelectorDisabled: {
+      opacity: 0.45,
+    },
+    nsValue: {
+      fontSize: 12,
+      color: c.text,
+      flexShrink: 1,
+    },
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-start',
+    },
+    modalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalPanel: {
+      marginTop: 4,
+      marginHorizontal: 12,
+      maxHeight: 340,
+      backgroundColor: c.bgCard,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
+      elevation: 12,
+    },
+    modalTitle: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: c.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: c.bgSecondary,
+    },
+    modalScroll: {
+      maxHeight: 300,
+    },
+    dropdownItem: { paddingHorizontal: 14, paddingVertical: 12 },
+    dropdownItemActive: { backgroundColor: `${c.accent}20` },
+    dropdownText: { fontSize: 14, color: c.textSecondary },
+    dropdownTextActive: { color: c.text, fontWeight: '600' as const },
+  });
+}

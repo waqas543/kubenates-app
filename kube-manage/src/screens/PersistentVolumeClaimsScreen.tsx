@@ -1,9 +1,12 @@
+import { AnimatedIcon } from '@/components/AnimatedIcon';
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getPersistentVolumeClaims } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { HardDrive, Search } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 function toAge(ts?: string): string {
@@ -29,6 +32,8 @@ interface PVCItem {
 export default function PersistentVolumeClaimsScreen() {
   const { activeConnection, activeNamespace } = useKubernetes();
   const [search, setSearch] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: pvcs = [], isLoading } = useQuery<PVCItem[]>({
     queryKey: ['persistentvolumeclaims', activeConnection?.name, activeNamespace],
@@ -54,7 +59,7 @@ export default function PersistentVolumeClaimsScreen() {
     pvc.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  function phaseColor(phase: string) {
+  function phaseStyle(phase: string) {
     if (phase === 'Bound') return styles.badgeGreen;
     if (phase === 'Pending') return styles.badgeYellow;
     if (phase === 'Lost') return styles.badgeRed;
@@ -66,14 +71,16 @@ export default function PersistentVolumeClaimsScreen() {
       <View style={styles.cardMain}>
         <View style={styles.cardLeft}>
           <View style={styles.icon}>
-            <HardDrive size={16} color="#8BE9FD" />
+            <AnimatedIcon type="float">
+              <HardDrive size={16} color="#8BE9FD" />
+            </AnimatedIcon>
           </View>
           <View style={styles.info}>
             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
             <Text style={styles.sub}>{item.namespace}</Text>
           </View>
         </View>
-        <View style={[styles.badge, phaseColor(item.phase)]}>
+        <View style={[styles.badge, phaseStyle(item.phase)]}>
           <Text style={styles.badgeText}>{item.phase}</Text>
         </View>
       </View>
@@ -102,11 +109,11 @@ export default function PersistentVolumeClaimsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Search size={16} color="#8B92A8" />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search PVCs..."
-            placeholderTextColor="#8B92A8"
+            placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
           />
@@ -130,7 +137,7 @@ export default function PersistentVolumeClaimsScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <HardDrive size={40} color="#1E2B42" />
+              <HardDrive size={40} color={colors.border} />
               <Text style={styles.emptyText}>No PVCs found</Text>
             </View>
           }
@@ -140,32 +147,34 @@ export default function PersistentVolumeClaimsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#162033', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0D1219' },
-  statsText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  loader: { marginTop: 40 },
-  list: { padding: 16 },
-  card: { backgroundColor: '#162033', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#1E2B42' },
-  cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
-  icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#8BE9FD20', alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  sub: { fontSize: 12, color: '#8B92A8' },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgeText: { fontSize: 11, fontWeight: '700' as const, color: '#FFFFFF' },
-  badgeGreen: { backgroundColor: '#00FF8830' },
-  badgeYellow: { backgroundColor: '#FFD70030' },
-  badgeRed: { backgroundColor: '#FF575730' },
-  badgeGray: { backgroundColor: '#8B92A830' },
-  cardDetails: { flexDirection: 'row', gap: 12 },
-  detail: { flex: 1 },
-  detailLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 4, fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' as const },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 15, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: c.text },
+    statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.bgSecondary },
+    statsText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    loader: { marginTop: 40 },
+    list: { padding: 16 },
+    card: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: c.border },
+    cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+    icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#8BE9FD20', alignItems: 'center', justifyContent: 'center' },
+    info: { flex: 1 },
+    name: { fontSize: 15, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    sub: { fontSize: 12, color: c.textSecondary },
+    badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    badgeText: { fontSize: 11, fontWeight: '700' as const, color: c.text },
+    badgeGreen: { backgroundColor: '#00FF8830' },
+    badgeYellow: { backgroundColor: '#FFD70030' },
+    badgeRed: { backgroundColor: '#FF575730' },
+    badgeGray: { backgroundColor: '#8B92A830' },
+    cardDetails: { flexDirection: 'row', gap: 12 },
+    detail: { flex: 1 },
+    detailLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 4, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, fontWeight: '600' as const },
+    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: c.textSecondary },
+  });
+}
