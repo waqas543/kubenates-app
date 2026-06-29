@@ -208,7 +208,6 @@ export async function kubeRequest<T = any>(
         config.clientCertificateData ?? '',
         config.clientKeyData ?? '',
       );
-    console.log('[kubeRequest] native result:', nativeResult);
     let data: T;
     try {
       data = nativeResult.body ? (JSON.parse(nativeResult.body) as T) : ('' as T);

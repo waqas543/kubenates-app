@@ -1,10 +1,12 @@
 import { useKubernetes } from '@/context/KubernetesContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import type { ClusterConnection } from '@/types/kubernetes';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CheckCircle2, Cloud, Plus, Server, Settings as SettingsIcon, Trash2 } from 'lucide-react-native';
-import React from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CheckCircle2, Cloud, Moon, Plus, Server, Settings as SettingsIcon, Sun, Trash2 } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { Alert, FlatList, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -12,6 +14,8 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 export default function SettingsScreen() {
   const { connections, activeConnection, setActiveConnection, deleteConnection } = useKubernetes();
   const navigation = useNavigation<NavProp>();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleDeleteConnection = (connection: ClusterConnection) => {
     Alert.alert(
@@ -39,8 +43,8 @@ export default function SettingsScreen() {
               item.connectionType === 'eks' && styles.connectionIconEks,
             ]}>
               {item.connectionType === 'eks'
-                ? <Cloud size={18} color={isActive ? '#FF9F43' : '#FF9F43'} />
-                : <Server size={18} color={isActive ? '#00D9FF' : '#8B92A8'} />}
+                ? <Cloud size={18} color="#FF9F43" />
+                : <Server size={18} color={isActive ? colors.accent : colors.textSecondary} />}
             </View>
             <View style={styles.connectionInfo}>
               <View style={styles.connectionNameRow}>
@@ -50,13 +54,13 @@ export default function SettingsScreen() {
                     <Text style={styles.eksBadgeText}>EKS</Text>
                   </View>
                 )}
-                {isActive && <CheckCircle2 size={16} color="#00FF88" />}
+                {isActive && <CheckCircle2 size={16} color={colors.accentGreen} />}
               </View>
               <Text style={styles.connectionServer} numberOfLines={1}>{item.server}</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteConnection(item)}>
-            <Trash2 size={18} color="#FF4455" />
+            <Trash2 size={18} color={colors.accentRed} />
           </TouchableOpacity>
         </View>
         <View style={styles.connectionDetails}>
@@ -85,8 +89,27 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <SettingsIcon size={24} color="#00D9FF" />
+          <SettingsIcon size={24} color={colors.accent} />
           <Text style={styles.title}>Settings</Text>
+        </View>
+      </View>
+
+      {/* Theme toggle */}
+      <View style={styles.themeSection}>
+        <View style={styles.themeRow}>
+          {isDark
+            ? <Moon size={20} color={colors.accent} />
+            : <Sun size={20} color={colors.accentYellow} />}
+          <View style={styles.themeInfo}>
+            <Text style={styles.themeLabel}>Theme</Text>
+            <Text style={styles.themeValue}>{isDark ? 'Dark' : 'Light'}</Text>
+          </View>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            trackColor={{ false: colors.border, true: `${colors.accent}60` }}
+            thumbColor={isDark ? colors.accent : colors.textSecondary}
+          />
         </View>
       </View>
 
@@ -101,7 +124,7 @@ export default function SettingsScreen() {
 
         {connections.length === 0 ? (
           <View style={styles.emptyState}>
-            <Server size={40} color="#8B92A8" />
+            <Server size={40} color={colors.textSecondary} />
             <Text style={styles.emptyTitle}>No Connections</Text>
             <Text style={styles.emptyText}>Add a cluster connection to get started</Text>
             <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Setup')}>
@@ -127,42 +150,51 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingTop: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { fontSize: 28, fontWeight: '700' as const, color: '#FFFFFF' },
-  section: { flex: 1, padding: 16 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF' },
-  addButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00D9FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  addButtonText: { fontSize: 14, fontWeight: '600' as const, color: '#000000' },
-  list: { gap: 12 },
-  connectionCard: { backgroundColor: '#162033', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1E2B42' },
-  connectionCardActive: { borderColor: '#00D9FF', backgroundColor: '#162840' },
-  connectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  connectionLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, gap: 12 },
-  connectionIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#0D1219', alignItems: 'center', justifyContent: 'center' },
-  connectionIconActive: { backgroundColor: '#00D9FF20' },
-  connectionIconEks: { backgroundColor: '#FF9F4320' },
-  eksBadge: { backgroundColor: '#FF9F4330', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#FF9F43' },
-  eksBadgeText: { fontSize: 10, fontWeight: '700' as const, color: '#FF9F43' },
-  detailValueEks: { color: '#FF9F43' },
-  connectionInfo: { flex: 1 },
-  connectionNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  connectionName: { fontSize: 16, fontWeight: '600' as const, color: '#FFFFFF' },
-  connectionServer: { fontSize: 13, color: '#8B92A8' },
-  deleteButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#0D1219', alignItems: 'center', justifyContent: 'center' },
-  connectionDetails: { flexDirection: 'row', gap: 16 },
-  connectionDetail: { flex: 1 },
-  detailLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 4, fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' as const },
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyTitle: { fontSize: 20, fontWeight: '700' as const, color: '#FFFFFF', marginTop: 16, marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#8B92A8', textAlign: 'center', marginBottom: 24 },
-  emptyButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#00D9FF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
-  emptyButtonText: { fontSize: 15, fontWeight: '600' as const, color: '#000000' },
-  footer: { padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#1E2B42' },
-  footerText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  footerSubtext: { fontSize: 11, color: '#666', marginTop: 4 },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingTop: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    title: { fontSize: 28, fontWeight: '700' as const, color: c.text },
+
+    themeSection: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border },
+    themeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    themeInfo: { flex: 1 },
+    themeLabel: { fontSize: 15, fontWeight: '600' as const, color: c.text },
+    themeValue: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
+
+    section: { flex: 1, padding: 16 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    sectionTitle: { fontSize: 18, fontWeight: '700' as const, color: c.text },
+    addButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.accent, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+    addButtonText: { fontSize: 14, fontWeight: '600' as const, color: '#000000' },
+    list: { gap: 12 },
+    connectionCard: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: c.border },
+    connectionCardActive: { borderColor: c.accent, backgroundColor: c.navActive },
+    connectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    connectionLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, gap: 12 },
+    connectionIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' },
+    connectionIconActive: { backgroundColor: `${c.accent}20` },
+    connectionIconEks: { backgroundColor: '#FF9F4320' },
+    eksBadge: { backgroundColor: '#FF9F4330', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#FF9F43' },
+    eksBadgeText: { fontSize: 10, fontWeight: '700' as const, color: '#FF9F43' },
+    detailValueEks: { color: '#FF9F43' },
+    connectionInfo: { flex: 1 },
+    connectionNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+    connectionName: { fontSize: 16, fontWeight: '600' as const, color: c.text },
+    connectionServer: { fontSize: 13, color: c.textSecondary },
+    deleteButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' },
+    connectionDetails: { flexDirection: 'row', gap: 16 },
+    connectionDetail: { flex: 1 },
+    detailLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 4, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, fontWeight: '600' as const },
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+    emptyTitle: { fontSize: 20, fontWeight: '700' as const, color: c.text, marginTop: 16, marginBottom: 8 },
+    emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 24 },
+    emptyButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.accent, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
+    emptyButtonText: { fontSize: 15, fontWeight: '600' as const, color: '#000000' },
+    footer: { padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border },
+    footerText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    footerSubtext: { fontSize: 11, color: c.textMuted, marginTop: 4 },
+  });
+}

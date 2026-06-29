@@ -1,4 +1,5 @@
 import { HeaderRefreshButton } from '@/components/HeaderRefreshButton';
+import { useTheme } from '@/context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
@@ -42,96 +43,98 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const HEADER_STYLE = {
-  headerStyle: { backgroundColor: '#0D1219' },
-  headerTintColor: '#FFFFFF',
-  headerTitleStyle: { fontWeight: '700' as const },
-};
-
-const HEADER_WITH_REFRESH = {
-  ...HEADER_STYLE,
-  headerRight: () => <HeaderRefreshButton />,
-};
-
 export default function AppNavigator() {
+  const { colors } = useTheme();
+
+  const headerStyle = {
+    headerStyle: { backgroundColor: colors.bgTopBar },
+    headerTintColor: colors.text,
+    headerTitleStyle: { fontWeight: '700' as const },
+  };
+
+  const headerWithRefresh = {
+    ...headerStyle,
+    headerRight: () => <HeaderRefreshButton />,
+  };
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={HEADER_STYLE}>
+      <Stack.Navigator screenOptions={headerStyle}>
         <Stack.Screen name="Main" component={SidebarLayout} options={{ headerShown: false }} />
         <Stack.Screen
           name="Setup"
           component={SetupScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Add Connection' }}
+          options={{ ...headerWithRefresh, title: 'Add Connection' }}
         />
         <Stack.Screen
           name="Logs"
           component={LogsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Logs' }}
+          options={{ ...headerWithRefresh, title: 'Logs' }}
         />
         <Stack.Screen
           name="PodDetails"
           component={PodDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Pod Details' }}
+          options={{ ...headerWithRefresh, title: 'Pod Details' }}
         />
         <Stack.Screen
           name="DeploymentDetails"
           component={DeploymentDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Deployment' }}
+          options={{ ...headerWithRefresh, title: 'Deployment' }}
         />
         <Stack.Screen
           name="StatefulSetDetails"
           component={StatefulSetDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'StatefulSet' }}
+          options={{ ...headerWithRefresh, title: 'StatefulSet' }}
         />
         <Stack.Screen
           name="DaemonSetDetails"
           component={DaemonSetDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'DaemonSet' }}
+          options={{ ...headerWithRefresh, title: 'DaemonSet' }}
         />
         <Stack.Screen
           name="JobDetails"
           component={JobDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Job' }}
+          options={{ ...headerWithRefresh, title: 'Job' }}
         />
         <Stack.Screen
           name="CronJobDetails"
           component={CronJobDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'CronJob' }}
+          options={{ ...headerWithRefresh, title: 'CronJob' }}
         />
         <Stack.Screen
           name="ReplicaSetDetails"
           component={ReplicaSetDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'ReplicaSet' }}
+          options={{ ...headerWithRefresh, title: 'ReplicaSet' }}
         />
         <Stack.Screen
           name="ServiceDetails"
           component={ServiceDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Service' }}
+          options={{ ...headerWithRefresh, title: 'Service' }}
         />
         <Stack.Screen
           name="IngressDetails"
           component={IngressDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Ingress' }}
+          options={{ ...headerWithRefresh, title: 'Ingress' }}
         />
         <Stack.Screen
           name="ConfigMapDetails"
           component={ConfigMapDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'ConfigMap' }}
+          options={{ ...headerWithRefresh, title: 'ConfigMap' }}
         />
         <Stack.Screen
           name="SecretDetails"
           component={SecretDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Secret' }}
+          options={{ ...headerWithRefresh, title: 'Secret' }}
         />
         <Stack.Screen
           name="NodeDetails"
           component={NodeDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Node' }}
+          options={{ ...headerWithRefresh, title: 'Node' }}
         />
         <Stack.Screen
           name="NamespaceDetails"
           component={NamespaceDetailsScreen}
-          options={{ ...HEADER_WITH_REFRESH, title: 'Namespace' }}
+          options={{ ...headerWithRefresh, title: 'Namespace' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,4 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import {
   Activity,
   AlignJustify,
@@ -20,8 +22,12 @@ import {
   Users,
   Zap,
 } from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  Animated,
+  BackHandler,
+  Easing,
   ScrollView,
   StyleSheet,
   Text,
@@ -61,7 +67,6 @@ import ServiceAccountsScreen from '../screens/ServiceAccountsScreen';
 
 // Cluster
 import NodesScreen from '../screens/NodesScreen';
-import NamespacesScreen from '../screens/NamespacesScreen';
 import EventsScreen from '../screens/EventsScreen';
 
 import { MainLayoutNavProvider } from './MainLayoutNavContext';
@@ -88,7 +93,6 @@ const SCREENS: Record<ScreenKey, React.ComponentType> = {
   secrets: SecretsScreen,
   serviceaccounts: ServiceAccountsScreen,
   nodes: NodesScreen,
-  namespaces: NamespacesScreen,
   events: EventsScreen,
   settings: SettingsScreen,
 };
@@ -137,11 +141,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'CLUSTER',
     items: [
       { key: 'nodes', label: 'Nodes', icon: Server },
-      { key: 'namespaces', label: 'Namespaces', icon: Database },
       { key: 'events', label: 'Events', icon: Activity },
     ],
   },
 ];
+
+const SIDEBAR_WIDTH = 240;
 
 export default function SidebarLayout() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('dashboard');
@@ -149,10 +154,71 @@ export default function SidebarLayout() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 768;
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  React.useEffect(() => {
+  // Animation refs
+  const sidebarSlide = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const screenFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
     if (!isSmallScreen) setSidebarOpen(true);
   }, [isSmallScreen]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (sidebarOpen && isSmallScreen) {
+        setSidebarOpen(false);
+        return true;
+      }
+      Alert.alert(
+        'Exit App',
+        'Are you sure you want to exit?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ],
+      );
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => sub.remove();
+  }, [sidebarOpen, isSmallScreen]);
+
+  // Animate sidebar open/close on small screens
+  useEffect(() => {
+    if (!isSmallScreen) return;
+    if (sidebarOpen) {
+      Animated.parallel([
+        Animated.spring(sidebarSlide, {
+          toValue: 0,
+          tension: 65,
+          friction: 11,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(sidebarSlide, {
+          toValue: -SIDEBAR_WIDTH,
+          duration: 220,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [sidebarOpen, isSmallScreen]);
 
   const toggleSection = (title: string) => {
     setCollapsedSections((prev) => {
@@ -164,19 +230,38 @@ export default function SidebarLayout() {
   };
 
   const navigateTo = useCallback((key: ScreenKey) => {
-    setActiveScreen(key);
+    // Fade out → swap screen → fade in
+    Animated.timing(screenFade, {
+      toValue: 0,
+      duration: 100,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveScreen(key);
+      Animated.timing(screenFade, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    });
     if (isSmallScreen) setSidebarOpen(false);
   }, [isSmallScreen]);
 
   const Screen = SCREENS[activeScreen];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <View style={[styles.root, isSmallScreen && styles.rootSmall]}>
 
         {/* ── Sidebar ── */}
-        {sidebarOpen && (
-          <View style={[styles.sidebar, isSmallScreen && styles.sidebarOverlay]}>
+        {(sidebarOpen || !isSmallScreen) && (
+          <Animated.View
+            style={[
+              styles.sidebar,
+              isSmallScreen && styles.sidebarOverlay,
+              isSmallScreen && { transform: [{ translateX: sidebarSlide }] },
+            ]}
+          >
             <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
               {/* App title */}
               <Text style={styles.appTitle}>kube-manage</Text>
@@ -186,7 +271,7 @@ export default function SidebarLayout() {
                 style={[styles.navItem, activeScreen === 'dashboard' && styles.navItemActive]}
                 onPress={() => navigateTo('dashboard')}
               >
-                <Activity size={18} color={activeScreen === 'dashboard' ? '#00D9FF' : '#8B92A8'} />
+                <Activity size={18} color={activeScreen === 'dashboard' ? colors.navAccent : colors.navTextMuted} />
                 <Text style={[styles.navLabel, activeScreen === 'dashboard' && styles.navLabelActive]}>
                   Dashboard
                 </Text>
@@ -206,8 +291,8 @@ export default function SidebarLayout() {
                     >
                       <Text style={styles.sectionTitle}>{section.title}</Text>
                       {collapsed
-                        ? <ChevronRight size={14} color="#4A5568" />
-                        : <ChevronDown size={14} color="#4A5568" />}
+                        ? <ChevronRight size={14} color={colors.navTextMuted} />
+                        : <ChevronDown size={14} color={colors.navTextMuted} />}
                     </TouchableOpacity>
 
                     {!collapsed && section.items.map((item) => {
@@ -219,7 +304,7 @@ export default function SidebarLayout() {
                           style={[styles.navItem, active && styles.navItemActive]}
                           onPress={() => navigateTo(item.key)}
                         >
-                          <Icon size={16} color={active ? '#00D9FF' : '#8B92A8'} />
+                          <Icon size={16} color={active ? colors.navAccent : colors.navTextMuted} />
                           <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                             {item.label}
                           </Text>
@@ -237,22 +322,24 @@ export default function SidebarLayout() {
                 style={[styles.navItem, activeScreen === 'settings' && styles.navItemActive]}
                 onPress={() => navigateTo('settings')}
               >
-                <SettingsIcon size={18} color={activeScreen === 'settings' ? '#00D9FF' : '#8B92A8'} />
+                <SettingsIcon size={18} color={activeScreen === 'settings' ? colors.navAccent : colors.navTextMuted} />
                 <Text style={[styles.navLabel, activeScreen === 'settings' && styles.navLabelActive]}>
                   Settings
                 </Text>
               </TouchableOpacity>
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Backdrop on small screens */}
-        {sidebarOpen && isSmallScreen && (
-          <TouchableOpacity
-            style={styles.backdrop}
-            activeOpacity={1}
-            onPress={() => setSidebarOpen(false)}
-          />
+        {/* Animated backdrop on small screens */}
+        {isSmallScreen && sidebarOpen && (
+          <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setSidebarOpen(false)}
+            />
+          </Animated.View>
         )}
 
         {/* ── Main content ── */}
@@ -267,9 +354,9 @@ export default function SidebarLayout() {
 
           {/* Screen */}
           <MainLayoutNavProvider value={navigateTo}>
-            <View style={styles.screenContainer}>
+            <Animated.View style={[styles.screenContainer, { opacity: screenFade }]}>
               <Screen />
-            </View>
+            </Animated.View>
           </MainLayoutNavProvider>
         </View>
       </View>
@@ -277,91 +364,93 @@ export default function SidebarLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0A0E1A' },
-  root: { flex: 1, flexDirection: 'row', backgroundColor: '#0A0E1A' },
-  rootSmall: { flexDirection: 'column' },
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    root: { flex: 1, flexDirection: 'row', backgroundColor: c.bg },
+    rootSmall: { flexDirection: 'column' },
 
-  sidebar: {
-    width: 240,
-    backgroundColor: '#050814',
-    borderRightWidth: 1,
-    borderRightColor: '#1E2B42',
-    paddingBottom: 16,
-  },
-  sidebarOverlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  sidebarContent: {
-    paddingHorizontal: 12,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  appTitle: {
-    fontSize: 18,
-    fontWeight: '800' as const,
-    color: '#00D9FF',
-    letterSpacing: 0.5,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#1E2B42',
-    marginVertical: 10,
-  },
-  section: { marginBottom: 4 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: '#4A5568',
-    letterSpacing: 1,
-  },
-  navItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    gap: 10,
-    marginBottom: 1,
-  },
-  navItemActive: { backgroundColor: '#162033' },
-  navLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '500' as const, flex: 1 },
-  navLabelActive: { color: '#FFFFFF', fontWeight: '600' as const },
+    sidebar: {
+      width: 240,
+      backgroundColor: c.bgSidebar,
+      borderRightWidth: 1,
+      borderRightColor: c.navActive,
+      paddingBottom: 16,
+    },
+    sidebarOverlay: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 20,
+      shadowColor: '#000',
+      shadowOpacity: 0.6,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    sidebarContent: {
+      paddingHorizontal: 12,
+      paddingTop: 20,
+      paddingBottom: 20,
+    },
+    appTitle: {
+      fontSize: 18,
+      fontWeight: '800' as const,
+      color: c.navAccent,
+      letterSpacing: 0.5,
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.navActive,
+      marginVertical: 10,
+    },
+    section: { marginBottom: 4 },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+      marginBottom: 2,
+    },
+    sectionTitle: {
+      fontSize: 10,
+      fontWeight: '700' as const,
+      color: c.navTextMuted,
+      letterSpacing: 1,
+    },
+    navItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      gap: 10,
+      marginBottom: 1,
+    },
+    navItemActive: { backgroundColor: c.navActive },
+    navLabel: { fontSize: 13, color: c.navTextMuted, fontWeight: '500' as const, flex: 1 },
+    navLabelActive: { color: c.navText, fontWeight: '600' as const },
 
-  backdrop: {
-    position: 'absolute',
-    top: 0, bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 10,
-  },
+    backdrop: {
+      position: 'absolute',
+      top: 0, bottom: 0, left: 0, right: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      zIndex: 10,
+    },
 
-  content: { flex: 1 },
-  topBar: {
-    height: 52,
-    backgroundColor: '#0D1219',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E2B42',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  screenContainer: { flex: 1 },
-});
+    content: { flex: 1 },
+    topBar: {
+      height: 52,
+      backgroundColor: c.bgTopBar,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+    },
+    screenContainer: { flex: 1 },
+  });
+}

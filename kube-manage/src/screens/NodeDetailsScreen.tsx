@@ -8,12 +8,14 @@ import {
   toParsedConfig,
 } from '@/lib/kubeHelpers';
 import { getEvents, getNode, getNodeMetrics, getPods } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Server, XCircle } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -40,36 +42,11 @@ function getNodeRoles(labels: Record<string, string> = {}): string {
   return roles.length > 0 ? roles.join(', ') : 'worker';
 }
 
-/** Whether this condition row should show as healthy (green check). */
 function conditionIsHealthy(type: string, status: string): boolean | null {
   if (type === 'Ready') return status === 'True';
   if (PRESSURE_TYPES.has(type)) return status !== 'True';
   if (type === 'Schedulable') return status !== 'False';
   return null;
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue} numberOfLines={2}>{value}</Text>
-    </View>
-  );
-}
-
-function UsageBar({ label, usedFrac }: { label: string; usedFrac: number }) {
-  const pct = Math.min(100, Math.max(0, Math.round(usedFrac * 100)));
-  return (
-    <View style={styles.barBlock}>
-      <View style={styles.barHeader}>
-        <Text style={styles.barLabel}>{label}</Text>
-        <Text style={styles.barPct}>{pct}%</Text>
-      </View>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${pct}%` }]} />
-      </View>
-    </View>
-  );
 }
 
 type NodeDetailPayload = {
@@ -86,11 +63,7 @@ type NodeDetailPayload = {
 };
 
 function sumContainerResources(containers: any[] | undefined) {
-  let reqCpuM = 0;
-  let reqMemB = 0;
-  let reqEphemeralB = 0;
-  let limCpuM = 0;
-  let limMemB = 0;
+  let reqCpuM = 0; let reqMemB = 0; let reqEphemeralB = 0; let limCpuM = 0; let limMemB = 0;
   for (const c of containers ?? []) {
     const req = c?.resources?.requests ?? {};
     const lim = c?.resources?.limits ?? {};
@@ -104,18 +77,11 @@ function sumContainerResources(containers: any[] | undefined) {
 }
 
 function aggregatePodsOnNode(pods: any[], nodeName: string) {
-  let podCount = 0;
-  let reqCpuM = 0;
-  let reqMemB = 0;
-  let reqEphemeralB = 0;
-  let limCpuM = 0;
-  let limMemB = 0;
-
+  let podCount = 0; let reqCpuM = 0; let reqMemB = 0; let reqEphemeralB = 0; let limCpuM = 0; let limMemB = 0;
   for (const pod of pods) {
     if (pod?.spec?.nodeName !== nodeName) continue;
     const phase = pod?.status?.phase;
     if (phase === 'Succeeded' || phase === 'Failed') continue;
-
     podCount++;
     const main = sumContainerResources(pod?.spec?.containers);
     const init = sumContainerResources(pod?.spec?.initContainers);
@@ -125,14 +91,10 @@ function aggregatePodsOnNode(pods: any[], nodeName: string) {
     limCpuM += main.limCpuM + init.limCpuM;
     limMemB += main.limMemB + init.limMemB;
   }
-
   return { podCount, reqCpuM, reqMemB, reqEphemeralB, limCpuM, limMemB };
 }
 
-async function fetchNodeMetrics(
-  cfg: ReturnType<typeof toParsedConfig>,
-  nodeName: string,
-): Promise<{ cpu: string; memory: string } | null> {
+async function fetchNodeMetrics(cfg: ReturnType<typeof toParsedConfig>, nodeName: string): Promise<{ cpu: string; memory: string } | null> {
   try {
     const res = await getNodeMetrics(cfg, nodeName);
     const u = res.data?.usage;
@@ -150,16 +112,39 @@ export default function NodeDetailsScreen() {
   const navigation = useNavigation<NavProp>();
   const { name } = useRoute<RouteType>().params;
   const { activeConnection } = useKubernetes();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  function DetailRow({ label, value }: { label: string; value: string }) {
+    return (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue} numberOfLines={2}>{value}</Text>
+      </View>
+    );
+  }
+
+  function UsageBar({ label, usedFrac }: { label: string; usedFrac: number }) {
+    const pct = Math.min(100, Math.max(0, Math.round(usedFrac * 100)));
+    return (
+      <View style={styles.barBlock}>
+        <View style={styles.barHeader}>
+          <Text style={styles.barLabel}>{label}</Text>
+          <Text style={styles.barPct}>{pct}%</Text>
+        </View>
+        <View style={styles.barTrack}>
+          <View style={[styles.barFill, { width: `${pct}%` }]} />
+        </View>
+      </View>
+    );
+  }
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['node-detail', activeConnection?.name, name],
     enabled: !!activeConnection && !!name,
     queryFn: async (): Promise<NodeDetailPayload> => {
       const cfg = toParsedConfig(activeConnection!);
-      const [nodeRes, podsRes] = await Promise.all([
-        getNode(cfg, name),
-        getPods(cfg, 'all'),
-      ]);
+      const [nodeRes, podsRes] = await Promise.all([getNode(cfg, name), getPods(cfg, 'all')]);
       const node = nodeRes.data as any;
       const pods: any[] = (podsRes.data as any)?.items ?? [];
       const workload = aggregatePodsOnNode(pods, name);
@@ -196,7 +181,7 @@ export default function NodeDetailsScreen() {
   if (isError || !data?.node) {
     return (
       <View style={styles.center}>
-        <AlertCircle size={48} color="#FF5757" />
+        <AlertCircle size={48} color={colors.accentRed} />
         <Text style={styles.errorText}>
           {isError ? (error as Error)?.message ?? 'Failed to load node' : 'Node not found'}
         </Text>
@@ -231,9 +216,7 @@ export default function NodeDetailsScreen() {
   const memReqFrac = allocMemB > 0 ? workload.reqMemB / allocMemB : 0;
   const diskReqFrac = allocEphemB > 0 ? workload.reqEphemeralB / allocEphemB : capEphemB > 0 ? workload.reqEphemeralB / capEphemB : 0;
 
-  const extraCapacityKeys = Object.keys(capacity).filter(
-    (k) => !['cpu', 'memory', 'pods'].includes(k),
-  );
+  const extraCapacityKeys = Object.keys(capacity).filter((k) => !['cpu', 'memory', 'pods'].includes(k));
 
   return (
     <View style={styles.container}>
@@ -301,13 +284,7 @@ export default function NodeDetailsScreen() {
           {extraCapacityKeys.length > 0 && (
             <View style={[styles.detailCard, { marginTop: 10 }]}>
               {extraCapacityKeys.map((k, idx) => (
-                <View
-                  key={k}
-                  style={[
-                    styles.detailRow,
-                    idx === extraCapacityKeys.length - 1 && styles.noBorder,
-                  ]}
-                >
+                <View key={k} style={[styles.detailRow, idx === extraCapacityKeys.length - 1 && styles.noBorder]}>
                   <Text style={styles.detailLabel}>{k}</Text>
                   <Text style={styles.detailValue} numberOfLines={2}>
                     {k.includes('ephemeral') || k.includes('storage') || k.includes('hugepages')
@@ -358,43 +335,26 @@ export default function NodeDetailsScreen() {
           </Text>
           <View style={styles.detailCard}>
             <DetailRow label="Pods" value={String(workload.podCount)} />
-            <DetailRow
-              label="CPU requests"
-              value={`${formatMillicores(workload.reqCpuM)} / ${formatMillicores(allocCpuM)} allocatable`}
-            />
-            <DetailRow
-              label="Memory requests"
-              value={`${formatBytesBin(workload.reqMemB)} / ${formatBytesBin(allocMemB)} allocatable`}
-            />
+            <DetailRow label="CPU requests" value={`${formatMillicores(workload.reqCpuM)} / ${formatMillicores(allocCpuM)} allocatable`} />
+            <DetailRow label="Memory requests" value={`${formatBytesBin(workload.reqMemB)} / ${formatBytesBin(allocMemB)} allocatable`} />
             {(workload.reqEphemeralB > 0 || allocEphemB > 0 || capEphemB > 0) && (
               <DetailRow
                 label="Ephemeral storage requests"
-                value={
-                  allocEphemB > 0 || capEphemB > 0
-                    ? `${formatBytesBin(workload.reqEphemeralB)} / ${formatBytesBin(allocEphemB || capEphemB)}`
-                    : formatBytesBin(workload.reqEphemeralB)
-                }
+                value={allocEphemB > 0 || capEphemB > 0
+                  ? `${formatBytesBin(workload.reqEphemeralB)} / ${formatBytesBin(allocEphemB || capEphemB)}`
+                  : formatBytesBin(workload.reqEphemeralB)}
               />
             )}
-            <DetailRow
-              label="CPU limits (sum)"
-              value={workload.limCpuM > 0 ? formatMillicores(workload.limCpuM) : '-'}
-            />
+            <DetailRow label="CPU limits (sum)" value={workload.limCpuM > 0 ? formatMillicores(workload.limCpuM) : '-'} />
             <View style={[styles.detailRow, styles.noBorder]}>
               <Text style={styles.detailLabel}>Memory limits (sum)</Text>
-              <Text style={styles.detailValue}>
-                {workload.limMemB > 0 ? formatBytesBin(workload.limMemB) : '-'}
-              </Text>
+              <Text style={styles.detailValue}>{workload.limMemB > 0 ? formatBytesBin(workload.limMemB) : '-'}</Text>
             </View>
           </View>
           {(allocCpuM > 0 || allocMemB > 0 || allocEphemB > 0 || capEphemB > 0) && (
             <View style={styles.barSection}>
-              {allocCpuM > 0 && workload.reqCpuM > 0 && (
-                <UsageBar label="CPU requests vs allocatable" usedFrac={cpuReqFrac} />
-              )}
-              {allocMemB > 0 && workload.reqMemB > 0 && (
-                <UsageBar label="Memory requests vs allocatable" usedFrac={memReqFrac} />
-              )}
+              {allocCpuM > 0 && workload.reqCpuM > 0 && <UsageBar label="CPU requests vs allocatable" usedFrac={cpuReqFrac} />}
+              {allocMemB > 0 && workload.reqMemB > 0 && <UsageBar label="Memory requests vs allocatable" usedFrac={memReqFrac} />}
               {(allocEphemB > 0 || capEphemB > 0) && workload.reqEphemeralB > 0 && diskReqFrac > 0 && (
                 <UsageBar label="Ephemeral requests vs capacity" usedFrac={diskReqFrac} />
               )}
@@ -408,9 +368,7 @@ export default function NodeDetailsScreen() {
             {spec.taints.map((t: any, i: number) => (
               <View key={i} style={styles.taintRow}>
                 <Text style={styles.taintText}>
-                  {t.key}
-                  {t.value != null && t.value !== '' ? `=${t.value}` : ''}
-                  {t.effect ? `:${t.effect}` : ''}
+                  {t.key}{t.value != null && t.value !== '' ? `=${t.value}` : ''}{t.effect ? `:${t.effect}` : ''}
                 </Text>
               </View>
             ))}
@@ -427,12 +385,10 @@ export default function NodeDetailsScreen() {
                   <View style={styles.conditionLeft}>
                     {healthy === true && <CheckCircle2 size={16} color="#50FA7B" />}
                     {healthy === false && <XCircle size={16} color="#FF5757" />}
-                    {healthy === null && <AlertCircle size={16} color="#8B92A8" />}
+                    {healthy === null && <AlertCircle size={16} color={colors.textSecondary} />}
                     <View style={styles.conditionInfo}>
                       <Text style={styles.conditionType}>{c.type}</Text>
-                      {c.message ? (
-                        <Text style={styles.conditionMessage} numberOfLines={3}>{c.message}</Text>
-                      ) : null}
+                      {c.message ? <Text style={styles.conditionMessage} numberOfLines={3}>{c.message}</Text> : null}
                     </View>
                   </View>
                   <Text style={styles.conditionStatus}>{c.status}</Text>
@@ -468,7 +424,6 @@ export default function NodeDetailsScreen() {
           </View>
         )}
 
-        {/* Events */}
         {events.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Events ({events.length})</Text>
@@ -478,9 +433,7 @@ export default function NodeDetailsScreen() {
               return (
                 <View key={i} style={[styles.eventCard, isWarning && styles.eventCardWarning]}>
                   <View style={styles.eventTop}>
-                    {isWarning
-                      ? <AlertTriangle size={14} color="#FFB86C" />
-                      : <Info size={14} color="#00D9FF" />}
+                    {isWarning ? <AlertTriangle size={14} color="#FFB86C" /> : <Info size={14} color={colors.accent} />}
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventReason}>{e.reason ?? '-'}</Text>
                       <Text style={styles.eventMessage} numberOfLines={2}>{e.message ?? '-'}</Text>
@@ -501,64 +454,66 @@ export default function NodeDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  center: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  loadingText: { color: '#8B92A8', fontSize: 14 },
-  errorText: { color: '#FF5757', fontSize: 16, fontWeight: '600' as const, marginTop: 8, textAlign: 'center' },
-  backBtn: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
-  backBtnText: { color: '#000', fontWeight: '600' as const },
-  content: { padding: 16, paddingBottom: 32 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#162033', borderRadius: 12, padding: 16, marginBottom: 20 },
-  headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#50FA7B20', alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#8B92A8' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusGreen: { backgroundColor: '#50FA7B20' },
-  statusRed: { backgroundColor: '#FF575720' },
-  statusText: { fontSize: 12, fontWeight: '700' as const, color: '#FFFFFF' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 12 },
-  sectionHint: { fontSize: 12, color: '#8B92A8', marginBottom: 10, lineHeight: 18 },
-  detailCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0D1219', gap: 12 },
-  noBorder: { borderBottomWidth: 0 },
-  detailLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const, flexShrink: 0, maxWidth: '42%' },
-  detailValue: { fontSize: 13, color: '#FFFFFF', flex: 1, textAlign: 'right' },
-  grid: { flexDirection: 'row', gap: 10 },
-  gridCard: { flex: 1, backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  gridLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 6, fontWeight: '600' as const },
-  gridValue: { fontSize: 15, fontWeight: '700' as const, color: '#FFFFFF' },
-  gridRaw: { fontSize: 10, color: '#5C6578', marginTop: 4 },
-  barSection: { marginTop: 14, gap: 14 },
-  barBlock: { gap: 6 },
-  barHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  barLabel: { fontSize: 12, color: '#8B92A8', fontWeight: '600' as const },
-  barPct: { fontSize: 12, color: '#50FA7B', fontWeight: '700' as const },
-  barTrack: { height: 6, backgroundColor: '#0D1219', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: '#50FA7B', borderRadius: 3 },
-  conditionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#162033', borderRadius: 8, padding: 12, marginBottom: 6 },
-  conditionLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1 },
-  conditionInfo: { flex: 1 },
-  conditionType: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 2 },
-  conditionMessage: { fontSize: 11, color: '#8B92A8', lineHeight: 16 },
-  conditionStatus: { fontSize: 11, color: '#8B92A8', marginLeft: 8 },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#162033', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#1E2B42', maxWidth: '100%' },
-  tagText: { fontSize: 11, color: '#8B92A8' },
-  taintRow: { backgroundColor: '#162033', borderRadius: 8, padding: 12, marginBottom: 6 },
-  taintText: { fontSize: 13, color: '#FFB800', fontFamily: 'monospace' },
-  eventCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1E2B42' },
-  eventCardWarning: { borderColor: '#FFB86C40' },
-  eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
-  eventInfo: { flex: 1 },
-  eventReason: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  eventMessage: { fontSize: 12, color: '#8B92A8', lineHeight: 17 },
-  eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
-  eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
-  eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
-  eventAge: { fontSize: 11, color: '#8B92A8' },
-  eventCount: { fontSize: 10, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+    loadingText: { color: c.textSecondary, fontSize: 14 },
+    errorText: { color: c.accentRed, fontSize: 16, fontWeight: '600' as const, marginTop: 8, textAlign: 'center' },
+    backBtn: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
+    backBtnText: { color: '#000', fontWeight: '600' as const },
+    content: { padding: 16, paddingBottom: 32 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgCard, borderRadius: 12, padding: 16, marginBottom: 20 },
+    headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#50FA7B20', alignItems: 'center', justifyContent: 'center' },
+    headerInfo: { flex: 1 },
+    title: { fontSize: 18, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    subtitle: { fontSize: 13, color: c.textSecondary },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    statusGreen: { backgroundColor: '#50FA7B20' },
+    statusRed: { backgroundColor: '#FF575720' },
+    statusText: { fontSize: 12, fontWeight: '700' as const, color: c.text },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: c.text, marginBottom: 12 },
+    sectionHint: { fontSize: 12, color: c.textSecondary, marginBottom: 10, lineHeight: 18 },
+    detailCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.bgSecondary, gap: 12 },
+    noBorder: { borderBottomWidth: 0 },
+    detailLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const, flexShrink: 0, maxWidth: '42%' },
+    detailValue: { fontSize: 13, color: c.text, flex: 1, textAlign: 'right' },
+    grid: { flexDirection: 'row', gap: 10 },
+    gridCard: { flex: 1, backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    gridLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 6, fontWeight: '600' as const },
+    gridValue: { fontSize: 15, fontWeight: '700' as const, color: c.text },
+    gridRaw: { fontSize: 10, color: c.textMuted, marginTop: 4 },
+    barSection: { marginTop: 14, gap: 14 },
+    barBlock: { gap: 6 },
+    barHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+    barLabel: { fontSize: 12, color: c.textSecondary, fontWeight: '600' as const },
+    barPct: { fontSize: 12, color: '#50FA7B', fontWeight: '700' as const },
+    barTrack: { height: 6, backgroundColor: c.bgSecondary, borderRadius: 3, overflow: 'hidden' },
+    barFill: { height: '100%', backgroundColor: '#50FA7B', borderRadius: 3 },
+    conditionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: c.bgCard, borderRadius: 8, padding: 12, marginBottom: 6 },
+    conditionLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1 },
+    conditionInfo: { flex: 1 },
+    conditionType: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 2 },
+    conditionMessage: { fontSize: 11, color: c.textSecondary, lineHeight: 16 },
+    conditionStatus: { fontSize: 11, color: c.textSecondary, marginLeft: 8 },
+    tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tag: { backgroundColor: c.bgCard, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.border, maxWidth: '100%' },
+    tagText: { fontSize: 11, color: c.textSecondary },
+    taintRow: { backgroundColor: c.bgCard, borderRadius: 8, padding: 12, marginBottom: 6 },
+    taintText: { fontSize: 13, color: '#FFB800', fontFamily: 'monospace' },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB86C40' },
+    eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
+    eventInfo: { flex: 1 },
+    eventReason: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
+    eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
+    eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
+    eventAge: { fontSize: 11, color: c.textSecondary },
+    eventCount: { fontSize: 10, color: c.textSecondary },
+  });
+}

@@ -1,12 +1,14 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getEvents, getSecret } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, FileKey, Info, Lock } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -27,6 +29,8 @@ export default function SecretDetailsScreen() {
   const navigation = useNavigation<NavProp>();
   const { name, namespace } = useRoute<RouteType>().params;
   const { activeConnection } = useKubernetes();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: secret, isLoading } = useQuery({
     queryKey: ['secret-detail', namespace, name],
@@ -56,7 +60,7 @@ export default function SecretDetailsScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF5757" />
+        <ActivityIndicator size="large" color={colors.accentRed} />
         <Text style={styles.loadingText}>Loading secret...</Text>
       </View>
     );
@@ -65,7 +69,7 @@ export default function SecretDetailsScreen() {
   if (!secret) {
     return (
       <View style={styles.center}>
-        <AlertCircle size={48} color="#FF5757" />
+        <AlertCircle size={48} color={colors.accentRed} />
         <Text style={styles.errorText}>Secret not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>Go Back</Text>
@@ -84,7 +88,7 @@ export default function SecretDetailsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <FileKey size={24} color="#FF5757" />
+            <FileKey size={24} color={colors.accentRed} />
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.title} numberOfLines={2}>{name}</Text>
@@ -133,7 +137,7 @@ export default function SecretDetailsScreen() {
           <Text style={styles.sectionTitle}>Keys ({dataKeys.length})</Text>
           {dataKeys.length === 0 ? (
             <View style={styles.emptyState}>
-              <Lock size={32} color="#1E2B42" />
+              <Lock size={32} color={colors.border} />
               <Text style={styles.emptyStateText}>No data keys</Text>
             </View>
           ) : (
@@ -143,7 +147,7 @@ export default function SecretDetailsScreen() {
                   key={key}
                   style={[styles.keyRow, index === dataKeys.length - 1 && styles.noBorder]}
                 >
-                  <Lock size={14} color="#FF5757" />
+                  <Lock size={14} color={colors.accentRed} />
                   <Text style={styles.keyName}>{key}</Text>
                   <View style={styles.hiddenBadge}>
                     <Text style={styles.hiddenBadgeText}>hidden</Text>
@@ -180,7 +184,7 @@ export default function SecretDetailsScreen() {
                   <View style={styles.eventTop}>
                     {isWarning
                       ? <AlertTriangle size={14} color="#FFB86C" />
-                      : <Info size={14} color="#00D9FF" />}
+                      : <Info size={14} color={colors.accent} />}
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventReason}>{e.reason ?? '-'}</Text>
                       <Text style={styles.eventMessage} numberOfLines={2}>{e.message ?? '-'}</Text>
@@ -201,50 +205,52 @@ export default function SecretDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  center: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#8B92A8', fontSize: 14 },
-  errorText: { color: '#FF5757', fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
-  backBtn: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
-  backBtnText: { color: '#000', fontWeight: '600' as const },
-  content: { padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#162033', borderRadius: 12, padding: 16, marginBottom: 12 },
-  headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF575720', alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#8B92A8' },
-  typeBadge: { backgroundColor: '#FF575720', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, maxWidth: 120 },
-  typeBadgeText: { fontSize: 11, fontWeight: '700' as const, color: '#FF5757' },
-  securityNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFB80015', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FFB80030' },
-  securityText: { fontSize: 13, color: '#FFB800', flex: 1 },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 12 },
-  detailCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0D1219' },
-  noBorder: { borderBottomWidth: 0 },
-  detailLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', maxWidth: '60%' },
-  emptyState: { alignItems: 'center', paddingVertical: 32, gap: 10, backgroundColor: '#162033', borderRadius: 10 },
-  emptyStateText: { fontSize: 14, color: '#8B92A8' },
-  keysCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  keyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#0D1219' },
-  keyName: { flex: 1, fontSize: 13, color: '#FFFFFF', fontWeight: '500' as const },
-  hiddenBadge: { backgroundColor: '#FF575720', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  hiddenBadgeText: { fontSize: 10, color: '#FF5757', fontWeight: '600' as const },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#162033', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#1E2B42' },
-  tagText: { fontSize: 11, color: '#8B92A8' },
-  eventCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1E2B42' },
-  eventCardWarning: { borderColor: '#FFB86C40' },
-  eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
-  eventInfo: { flex: 1 },
-  eventReason: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  eventMessage: { fontSize: 12, color: '#8B92A8', lineHeight: 17 },
-  eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
-  eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
-  eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
-  eventAge: { fontSize: 11, color: '#8B92A8' },
-  eventCount: { fontSize: 10, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: c.textSecondary, fontSize: 14 },
+    errorText: { color: c.accentRed, fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
+    backBtn: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
+    backBtnText: { color: '#000', fontWeight: '600' as const },
+    content: { padding: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgCard, borderRadius: 12, padding: 16, marginBottom: 12 },
+    headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF575720', alignItems: 'center', justifyContent: 'center' },
+    headerInfo: { flex: 1 },
+    title: { fontSize: 18, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    subtitle: { fontSize: 13, color: c.textSecondary },
+    typeBadge: { backgroundColor: '#FF575720', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, maxWidth: 120 },
+    typeBadgeText: { fontSize: 11, fontWeight: '700' as const, color: '#FF5757' },
+    securityNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFB80015', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FFB80030' },
+    securityText: { fontSize: 13, color: '#FFB800', flex: 1 },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: c.text, marginBottom: 12 },
+    detailCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.bgSecondary },
+    noBorder: { borderBottomWidth: 0 },
+    detailLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, maxWidth: '60%' },
+    emptyState: { alignItems: 'center', paddingVertical: 32, gap: 10, backgroundColor: c.bgCard, borderRadius: 10 },
+    emptyStateText: { fontSize: 14, color: c.textSecondary },
+    keysCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    keyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.bgSecondary },
+    keyName: { flex: 1, fontSize: 13, color: c.text, fontWeight: '500' as const },
+    hiddenBadge: { backgroundColor: '#FF575720', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    hiddenBadgeText: { fontSize: 10, color: '#FF5757', fontWeight: '600' as const },
+    tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tag: { backgroundColor: c.bgCard, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.border },
+    tagText: { fontSize: 11, color: c.textSecondary },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB86C40' },
+    eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
+    eventInfo: { flex: 1 },
+    eventReason: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
+    eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
+    eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
+    eventAge: { fontSize: 11, color: c.textSecondary },
+    eventCount: { fontSize: 10, color: c.textSecondary },
+  });
+}

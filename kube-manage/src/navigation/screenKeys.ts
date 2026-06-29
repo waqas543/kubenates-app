@@ -5,5 +5,5 @@ export type ScreenKey =
   | 'services' | 'ingresses' | 'networkpolicies'
   | 'persistentvolumes' | 'persistentvolumeclaims' | 'storageclasses'
   | 'configmaps' | 'secrets' | 'serviceaccounts'
-  | 'nodes' | 'namespaces' | 'events'
+  | 'nodes' | 'events'
   | 'settings';

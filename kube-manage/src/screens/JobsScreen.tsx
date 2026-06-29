@@ -1,11 +1,14 @@
+import { AnimatedIcon } from '@/components/AnimatedIcon';
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getJobs } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Search, Zap } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -41,6 +44,8 @@ export default function JobsScreen() {
   const navigation = useNavigation<NavProp>();
   const { activeConnection, activeNamespace } = useKubernetes();
   const [search, setSearch] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: jobs = [], isLoading } = useQuery<JobItem[]>({
     queryKey: ['jobs', activeConnection?.name, activeNamespace],
@@ -84,7 +89,9 @@ export default function JobsScreen() {
       <View style={styles.cardMain}>
         <View style={styles.cardLeft}>
           <View style={styles.icon}>
-            <Zap size={16} color="#00D9FF" />
+            <AnimatedIcon type="flash">
+              <Zap size={16} color={colors.accent} />
+            </AnimatedIcon>
           </View>
           <View style={styles.info}>
             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
@@ -95,7 +102,7 @@ export default function JobsScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusBg(item.jobStatus) }]}>
             <Text style={[styles.statusText, { color: statusColor(item.jobStatus) }]}>{item.jobStatus}</Text>
           </View>
-          <ChevronRight size={18} color="#8B92A8" />
+          <ChevronRight size={18} color={colors.textSecondary} />
         </View>
       </View>
       <View style={styles.cardDetails}>
@@ -115,11 +122,11 @@ export default function JobsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Search size={16} color="#8B92A8" />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search jobs..."
-            placeholderTextColor="#8B92A8"
+            placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
           />
@@ -134,7 +141,7 @@ export default function JobsScreen() {
         </Text>
       </View>
       {isLoading ? (
-        <ActivityIndicator size="large" color="#00D9FF" style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.accent} style={styles.loader} />
       ) : (
         <FlatList
           data={filtered}
@@ -143,7 +150,7 @@ export default function JobsScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Zap size={40} color="#1E2B42" />
+              <Zap size={40} color={colors.border} />
               <Text style={styles.emptyText}>No jobs found</Text>
             </View>
           }
@@ -153,29 +160,31 @@ export default function JobsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1E2B42' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#162033', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0D1219' },
-  statsText: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  loader: { marginTop: 40 },
-  list: { padding: 16 },
-  card: { backgroundColor: '#162033', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#1E2B42' },
-  cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
-  icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#00D9FF20', alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  ns: { fontSize: 12, color: '#8B92A8' },
-  rightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 11, fontWeight: '700' as const },
-  cardDetails: { flexDirection: 'row', gap: 12 },
-  detail: { flex: 1 },
-  detailLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 4, fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' as const },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 15, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    header: { padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.border },
+    searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.bgCard, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: c.text },
+    statsBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.bgSecondary },
+    statsText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    loader: { marginTop: 40 },
+    list: { padding: 16 },
+    card: { backgroundColor: c.bgCard, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: c.border },
+    cardMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+    icon: { width: 36, height: 36, borderRadius: 8, backgroundColor: `${c.accent}20`, alignItems: 'center', justifyContent: 'center' },
+    info: { flex: 1 },
+    name: { fontSize: 15, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    ns: { fontSize: 12, color: c.textSecondary },
+    rightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    statusText: { fontSize: 11, fontWeight: '700' as const },
+    cardDetails: { flexDirection: 'row', gap: 12 },
+    detail: { flex: 1 },
+    detailLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 4, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, fontWeight: '600' as const },
+    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: c.textSecondary },
+  });
+}

@@ -2,6 +2,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { getEvents } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useMainLayoutNav } from '@/src/navigation/MainLayoutNavContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,7 +13,6 @@ import {
   AlertTriangle,
   Box,
   Cpu,
-  Database,
   HeartPulse,
   Info,
   Layers,
@@ -53,59 +54,21 @@ function computeClusterHealth(params: {
 }): { level: ClusterHealthLevel; title: string; detail: string } {
   const { nodes, pods, recentWarningCount, isNodesLoading, isPodsLoading } = params;
   if (isNodesLoading || isPodsLoading) {
-    return {
-      level: 'healthy' as ClusterHealthLevel,
-      title: 'Gathering status',
-      detail: 'Loading nodes and pods to assess cluster health…',
-    };
+    return { level: 'healthy', title: 'Gathering status', detail: 'Loading nodes and pods to assess cluster health…' };
   }
-
   const notReady = nodes.filter((n) => n.status !== 'Ready').length;
-  if (notReady > 0) {
-    return {
-      level: 'critical',
-      title: 'Nodes need attention',
-      detail: `${notReady} node(s) are not Ready. Open Nodes to inspect conditions and capacity.`,
-    };
-  }
-
+  if (notReady > 0) return { level: 'critical', title: 'Nodes need attention', detail: `${notReady} node(s) are not Ready. Open Nodes to inspect conditions and capacity.` };
   const failedPods = pods.filter((p) => p.status === 'Failed').length;
-  if (failedPods > 0) {
-    return {
-      level: 'warning',
-      title: 'Workload issues',
-      detail: `${failedPods} pod(s) are Failed. Review logs and recent events.`,
-    };
-  }
-
+  if (failedPods > 0) return { level: 'warning', title: 'Workload issues', detail: `${failedPods} pod(s) are Failed. Review logs and recent events.` };
   const pendingPods = pods.filter((p) => p.status === 'Pending').length;
-  if (pendingPods > 10) {
-    return {
-      level: 'warning',
-      title: 'Scheduling backlog',
-      detail: `${pendingPods} pods are Pending. Check resources, taints, and node capacity.`,
-    };
-  }
-
-  if (recentWarningCount >= 5) {
-    return {
-      level: 'warning',
-      title: 'Elevated warnings',
-      detail: `${recentWarningCount} Warning events among the latest cluster events. Open Events for details.`,
-    };
-  }
-
-  return {
-    level: 'healthy',
-    title: 'Cluster looks healthy',
-    detail: 'All nodes Ready, no failed pods, and recent warning activity is low.',
-  };
+  if (pendingPods > 10) return { level: 'warning', title: 'Scheduling backlog', detail: `${pendingPods} pods are Pending. Check resources, taints, and node capacity.` };
+  if (recentWarningCount >= 5) return { level: 'warning', title: 'Elevated warnings', detail: `${recentWarningCount} Warning events among the latest cluster events. Open Events for details.` };
+  return { level: 'healthy', title: 'Cluster looks healthy', detail: 'All nodes Ready, no failed pods, and recent warning activity is low.' };
 }
 
 export default function DashboardScreen() {
   const {
     activeConnection,
-    namespaces,
     pods,
     deployments,
     nodes,
@@ -117,6 +80,8 @@ export default function DashboardScreen() {
   } = useKubernetes();
   const navigation = useNavigation<NavProp>();
   const navigateMain = useMainLayoutNav();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: rawEvents = [], isLoading: isEventsLoading } = useQuery({
     queryKey: ['events', activeConnection?.name, 'all'],
@@ -131,27 +96,17 @@ export default function DashboardScreen() {
   });
 
   const latestEvents = useMemo(() => rawEvents.slice(0, 12), [rawEvents]);
-  const recentWarningCount = useMemo(
-    () => latestEvents.filter((e: any) => e.type === 'Warning').length,
-    [latestEvents],
-  );
+  const recentWarningCount = useMemo(() => latestEvents.filter((e: any) => e.type === 'Warning').length, [latestEvents]);
 
   const health = useMemo(
-    () =>
-      computeClusterHealth({
-        nodes,
-        pods,
-        recentWarningCount,
-        isNodesLoading,
-        isPodsLoading,
-      }),
+    () => computeClusterHealth({ nodes, pods, recentWarningCount, isNodesLoading, isPodsLoading }),
     [nodes, pods, recentWarningCount, isNodesLoading, isPodsLoading],
   );
 
   if (!activeConnection) {
     return (
       <View style={styles.emptyContainer}>
-        <Activity size={48} color="#00D9FF" />
+        <Activity size={48} color={colors.accent} />
         <Text style={styles.emptyTitle}>No Cluster Connected</Text>
         <Text style={styles.emptyText}>
           Add a cluster connection to start managing your Kubernetes resources
@@ -168,7 +123,7 @@ export default function DashboardScreen() {
 
   const assessing = isNodesLoading || isPodsLoading;
   const healthPalette = assessing
-    ? { border: '#5C6578', icon: '#8B92A8', bg: '#121826' }
+    ? { border: colors.textMuted, icon: colors.textSecondary, bg: colors.bgSecondary }
     : {
         healthy: { border: '#00FF88', icon: '#00FF88', bg: '#00FF8818' },
         warning: { border: '#FFB800', icon: '#FFB800', bg: '#FFB80018' },
@@ -191,123 +146,54 @@ export default function DashboardScreen() {
         <Text style={styles.healthDetail}>{health.detail}</Text>
       </View>
 
-      {/* KPIs — tap to open the matching screen */}
+      {/* KPIs */}
       <View style={styles.statsGrid}>
-        <TouchableOpacity
-          style={[styles.statCard, { borderLeftColor: '#00FF88' }]}
-          onPress={() => navigateMain('nodes')}
-          activeOpacity={0.75}
-        >
+        <TouchableOpacity style={[styles.statCard, { borderLeftColor: '#00FF88' }]} onPress={() => navigateMain('nodes')} activeOpacity={0.75}>
           <View style={styles.statHeader}>
             <Cpu size={20} color="#00FF88" />
             <Text style={styles.statLabel}>Nodes</Text>
           </View>
-          {isNodesLoading ? (
-            <ActivityIndicator size="small" color="#00FF88" />
-          ) : (
-            <Text style={styles.statValue}>{readyNodes}/{nodes.length}</Text>
-          )}
+          {isNodesLoading ? <ActivityIndicator size="small" color="#00FF88" /> : <Text style={styles.statValue}>{readyNodes}/{nodes.length}</Text>}
           <Text style={styles.statHint}>Ready · tap to open</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.statCard, { borderLeftColor: '#00D9FF' }]}
-          onPress={() => navigateMain('pods')}
-          activeOpacity={0.75}
-        >
+        <TouchableOpacity style={[styles.statCard, { borderLeftColor: colors.accent }]} onPress={() => navigateMain('pods')} activeOpacity={0.75}>
           <View style={styles.statHeader}>
-            <Box size={20} color="#00D9FF" />
+            <Box size={20} color={colors.accent} />
             <Text style={styles.statLabel}>Pods</Text>
           </View>
-          {isPodsLoading ? (
-            <ActivityIndicator size="small" color="#00D9FF" />
-          ) : (
-            <Text style={styles.statValue}>{runningPods}/{pods.length}</Text>
-          )}
+          {isPodsLoading ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.statValue}>{runningPods}/{pods.length}</Text>}
           <Text style={styles.statHint}>Running · tap to open</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.statCard, { borderLeftColor: '#FFB800' }]}
-          onPress={() => navigateMain('deployments')}
-          activeOpacity={0.75}
-        >
+        <TouchableOpacity style={[styles.statCard, { borderLeftColor: '#FFB800' }]} onPress={() => navigateMain('deployments')} activeOpacity={0.75}>
           <View style={styles.statHeader}>
             <Layers size={20} color="#FFB800" />
             <Text style={styles.statLabel}>Deployments</Text>
           </View>
-          {isDeploymentsLoading ? (
-            <ActivityIndicator size="small" color="#FFB800" />
-          ) : (
-            <Text style={styles.statValue}>{deployments.length}</Text>
-          )}
+          {isDeploymentsLoading ? <ActivityIndicator size="small" color="#FFB800" /> : <Text style={styles.statValue}>{deployments.length}</Text>}
           <Text style={styles.statHint}>Listed · tap to open</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.statCard, { borderLeftColor: '#AA66FF' }]}
-          onPress={() => navigateMain('services')}
-          activeOpacity={0.75}
-        >
+        <TouchableOpacity style={[styles.statCard, { borderLeftColor: '#AA66FF' }]} onPress={() => navigateMain('services')} activeOpacity={0.75}>
           <View style={styles.statHeader}>
             <Network size={20} color="#AA66FF" />
             <Text style={styles.statLabel}>Services</Text>
           </View>
-          {isServicesLoading ? (
-            <ActivityIndicator size="small" color="#AA66FF" />
-          ) : (
-            <Text style={styles.statValue}>{services.length}</Text>
-          )}
+          {isServicesLoading ? <ActivityIndicator size="small" color="#AA66FF" /> : <Text style={styles.statValue}>{services.length}</Text>}
           <Text style={styles.statHint}>Exposed · tap to open</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Namespaces */}
-      <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.sectionHeaderRow}
-          onPress={() => navigateMain('namespaces')}
-          activeOpacity={0.7}
-        >
-          <Database size={18} color="#00D9FF" />
-          <Text style={styles.sectionTitle}>Namespaces</Text>
-          <Text style={styles.sectionLink}>View all</Text>
-        </TouchableOpacity>
-        {namespaces.length === 0 ? (
-          <ActivityIndicator size="small" color="#00D9FF" style={{ marginTop: 8 }} />
-        ) : (
-          <View style={styles.namespaceGrid}>
-            {namespaces.slice(0, 6).map((ns) => (
-              <TouchableOpacity
-                key={ns.name}
-                style={styles.namespaceCard}
-                onPress={() => navigation.navigate('NamespaceDetails', { name: ns.name })}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.namespaceName}>{ns.name}</Text>
-                <View style={styles.namespaceMeta}>
-                  <StatusBadge status={ns.status} />
-                  <Text style={styles.namespaceAge}>{ns.age}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
       {/* Latest events */}
       <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.sectionHeaderRow}
-          onPress={() => navigateMain('events')}
-          activeOpacity={0.7}
-        >
-          <Activity size={18} color="#00D9FF" />
+        <TouchableOpacity style={styles.sectionHeaderRow} onPress={() => navigateMain('events')} activeOpacity={0.7}>
+          <Activity size={18} color={colors.accent} />
           <Text style={styles.sectionTitle}>Latest events</Text>
           <Text style={styles.sectionLink}>Open Events</Text>
         </TouchableOpacity>
         {isEventsLoading ? (
-          <ActivityIndicator size="small" color="#00D9FF" style={{ marginTop: 8 }} />
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 8 }} />
         ) : latestEvents.length === 0 ? (
           <Text style={styles.emptySection}>No events found</Text>
         ) : (
@@ -322,9 +208,7 @@ export default function DashboardScreen() {
                 style={[styles.eventCard, isWarning && styles.eventCardWarning]}
               >
                 <View style={styles.eventTop}>
-                  {isWarning
-                    ? <AlertTriangle size={14} color="#FFB86C" />
-                    : <Info size={14} color="#00D9FF" />}
+                  {isWarning ? <AlertTriangle size={14} color="#FFB86C" /> : <Info size={14} color={colors.accent} />}
                   <View style={styles.eventInfo}>
                     <Text style={styles.eventReason} numberOfLines={1}>{item.reason ?? '-'}</Text>
                     <Text style={styles.eventObject} numberOfLines={1}>
@@ -333,9 +217,7 @@ export default function DashboardScreen() {
                   </View>
                   <Text style={styles.eventAge}>{toAge(ts)}</Text>
                 </View>
-                {item.message ? (
-                  <Text style={styles.eventMessage} numberOfLines={2}>{item.message}</Text>
-                ) : null}
+                {item.message ? <Text style={styles.eventMessage} numberOfLines={2}>{item.message}</Text> : null}
               </View>
             );
           })
@@ -345,60 +227,40 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  content: { padding: 16, paddingBottom: 32 },
-  emptyContainer: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyTitle: { fontSize: 24, fontWeight: '700' as const, color: '#FFFFFF', marginTop: 16, marginBottom: 8 },
-  emptyText: { fontSize: 15, color: '#8B92A8', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  setupButton: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  setupButtonText: { fontSize: 16, fontWeight: '600' as const, color: '#000000' },
-  header: { marginBottom: 16 },
-  clusterServer: { fontSize: 13, color: '#8B92A8', lineHeight: 18 },
-  healthCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-  },
-  healthHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  healthTitle: { fontSize: 15, fontWeight: '700' as const, color: '#FFFFFF' },
-  healthStatus: { fontSize: 17, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 8 },
-  healthDetail: { fontSize: 13, color: '#8B92A8', lineHeight: 20 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  statCard: { flex: 1, minWidth: '47%', backgroundColor: '#162033', borderRadius: 12, padding: 16, borderLeftWidth: 3 },
-  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  statLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  statValue: { fontSize: 28, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  statHint: { fontSize: 11, color: '#5C6578', fontWeight: '600' as const },
-  section: { marginBottom: 24 },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: { flex: 1, fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF' },
-  sectionLink: { fontSize: 13, fontWeight: '600' as const, color: '#00D9FF' },
-  namespaceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  namespaceCard: { flex: 1, minWidth: '47%', backgroundColor: '#162033', borderRadius: 10, padding: 12 },
-  namespaceName: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 8 },
-  namespaceMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  namespaceAge: { fontSize: 11, color: '#8B92A8' },
-  eventCard: {
-    backgroundColor: '#162033',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#1E2B42',
-  },
-  eventCardWarning: { borderColor: '#FFB80040', backgroundColor: '#1A1520' },
-  eventTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  eventInfo: { flex: 1, minWidth: 0 },
-  eventReason: { fontSize: 13, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 2 },
-  eventObject: { fontSize: 11, color: '#8B92A8' },
-  eventAge: { fontSize: 11, color: '#8B92A8', marginLeft: 4 },
-  eventMessage: { fontSize: 12, color: '#A8B0C4', marginTop: 8, lineHeight: 17 },
-  emptySection: { fontSize: 13, color: '#8B92A8', textAlign: 'center', paddingVertical: 12 },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    content: { padding: 16, paddingBottom: 32 },
+    emptyContainer: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    emptyTitle: { fontSize: 24, fontWeight: '700' as const, color: c.text, marginTop: 16, marginBottom: 8 },
+    emptyText: { fontSize: 15, color: c.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    setupButton: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+    setupButtonText: { fontSize: 16, fontWeight: '600' as const, color: '#000000' },
+    header: { marginBottom: 16 },
+    clusterServer: { fontSize: 13, color: c.textSecondary, lineHeight: 18 },
+    healthCard: { borderRadius: 12, padding: 16, marginBottom: 20, borderLeftWidth: 4 },
+    healthHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+    healthTitle: { fontSize: 15, fontWeight: '700' as const, color: c.text },
+    healthStatus: { fontSize: 17, fontWeight: '700' as const, color: c.text, marginBottom: 8 },
+    healthDetail: { fontSize: 13, color: c.textSecondary, lineHeight: 20 },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+    statCard: { flex: 1, minWidth: '47%', backgroundColor: c.bgCard, borderRadius: 12, padding: 16, borderLeftWidth: 3 },
+    statHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    statLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    statValue: { fontSize: 28, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    statHint: { fontSize: 11, color: c.textMuted, fontWeight: '600' as const },
+    section: { marginBottom: 24 },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    sectionTitle: { flex: 1, fontSize: 18, fontWeight: '700' as const, color: c.text },
+    sectionLink: { fontSize: 13, fontWeight: '600' as const, color: c.accent },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB80040', backgroundColor: c.eventWarningBg },
+    eventTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    eventInfo: { flex: 1, minWidth: 0 },
+    eventReason: { fontSize: 13, fontWeight: '700' as const, color: c.text, marginBottom: 2 },
+    eventObject: { fontSize: 11, color: c.textSecondary },
+    eventAge: { fontSize: 11, color: c.textSecondary, marginLeft: 4 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, marginTop: 8, lineHeight: 17 },
+    emptySection: { fontSize: 13, color: c.textSecondary, textAlign: 'center', paddingVertical: 12 },
+  });
+}

@@ -1,27 +1,15 @@
 import { useKubernetes } from '@/context/KubernetesContext';
 import { toParsedConfig } from '@/lib/kubeHelpers';
 import { deleteNamespaced, getEvents, getReplicaSet } from '@/lib/kubernetesClient';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppColors } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react-native';
-import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { AlertCircle, AlertTriangle, Info, RefreshCw, Trash2 } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -37,21 +25,14 @@ function toAge(ts?: string): string {
   return m > 0 ? `${m}m` : `${Math.floor((Date.now() - new Date(ts).getTime()) / 1000)}s`;
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-}
-
 export default function ReplicaSetDetailsScreen() {
   const navigation = useNavigation<NavProp>();
   const { name, namespace } = useRoute<RouteType>().params;
   const { activeConnection } = useKubernetes();
   const queryClient = useQueryClient();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: rs, isLoading } = useQuery({
     queryKey: ['replicaset-detail', namespace, name],
@@ -100,6 +81,15 @@ export default function ReplicaSetDetailsScreen() {
     ]);
   };
 
+  function DetailRow({ label, value }: { label: string; value: string }) {
+    return (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -112,7 +102,7 @@ export default function ReplicaSetDetailsScreen() {
   if (!rs) {
     return (
       <View style={styles.center}>
-        <AlertCircle size={48} color="#FF5757" />
+        <AlertCircle size={48} color={colors.accentRed} />
         <Text style={styles.errorText}>ReplicaSet not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>Go Back</Text>
@@ -253,7 +243,7 @@ export default function ReplicaSetDetailsScreen() {
                   <View style={styles.eventTop}>
                     {isWarning
                       ? <AlertTriangle size={14} color="#FFB86C" />
-                      : <Info size={14} color="#00D9FF" />}
+                      : <Info size={14} color={colors.accent} />}
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventReason}>{e.reason ?? '-'}</Text>
                       <Text style={styles.eventMessage} numberOfLines={2}>{e.message ?? '-'}</Text>
@@ -274,65 +264,67 @@ export default function ReplicaSetDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0E1A' },
-  center: { flex: 1, backgroundColor: '#0A0E1A', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#8B92A8', fontSize: 14 },
-  errorText: { color: '#FF5757', fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
-  backBtn: { backgroundColor: '#00D9FF', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
-  backBtnText: { color: '#000', fontWeight: '600' as const },
-  content: { padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#162033', borderRadius: 12, padding: 16, marginBottom: 20 },
-  headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#8BE9FD20', alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#8B92A8' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusGreen: { backgroundColor: '#00FF8820' },
-  statusOrange: { backgroundColor: '#FFB80020' },
-  statusText: { fontSize: 12, fontWeight: '700' as const, color: '#FFFFFF' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', marginBottom: 12 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  gridCard: { flex: 1, minWidth: '47%', backgroundColor: '#162033', borderRadius: 10, padding: 12 },
-  gridLabel: { fontSize: 11, color: '#8B92A8', marginBottom: 6, fontWeight: '600' as const },
-  gridValue: { fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF' },
-  green: { color: '#00FF88' },
-  detailCard: { backgroundColor: '#162033', borderRadius: 10, padding: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0D1219' },
-  detailLabel: { fontSize: 13, color: '#8B92A8', fontWeight: '600' as const },
-  detailValue: { fontSize: 13, color: '#FFFFFF', maxWidth: '60%' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, flex: 1 },
-  btnRed: { backgroundColor: '#FF5757' },
-  btnDark: { backgroundColor: '#1E2B42' },
-  btnDisabled: { opacity: 0.5 },
-  actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
-  ownerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },
-  ownerRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  ownerLabel: { fontSize: 12, color: '#8B92A8', fontWeight: '600' as const },
-  ownerValue: { fontSize: 12, color: '#FFFFFF', maxWidth: '60%' },
-  containerCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8 },
-  containerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  containerName: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF' },
-  portRow: { flexDirection: 'row', gap: 4 },
-  portBadge: { fontSize: 10, color: '#00D9FF', backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  containerImage: { fontSize: 12, color: '#8B92A8', marginBottom: 6 },
-  resourceRow: { flexDirection: 'row', gap: 12 },
-  resourceText: { fontSize: 11, color: '#8B92A8' },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#162033', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#1E2B42' },
-  tagText: { fontSize: 11, color: '#8B92A8' },
-  eventCard: { backgroundColor: '#162033', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1E2B42' },
-  eventCardWarning: { borderColor: '#FFB86C40' },
-  eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
-  eventInfo: { flex: 1 },
-  eventReason: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF', marginBottom: 3 },
-  eventMessage: { fontSize: 12, color: '#8B92A8', lineHeight: 17 },
-  eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
-  eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
-  eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
-  eventAge: { fontSize: 11, color: '#8B92A8' },
-  eventCount: { fontSize: 10, color: '#8B92A8' },
-});
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: c.textSecondary, fontSize: 14 },
+    errorText: { color: c.accentRed, fontSize: 16, fontWeight: '600' as const, marginTop: 8 },
+    backBtn: { backgroundColor: c.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, marginTop: 8 },
+    backBtnText: { color: '#000', fontWeight: '600' as const },
+    content: { padding: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgCard, borderRadius: 12, padding: 16, marginBottom: 20 },
+    headerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#8BE9FD20', alignItems: 'center', justifyContent: 'center' },
+    headerInfo: { flex: 1 },
+    title: { fontSize: 18, fontWeight: '700' as const, color: c.text, marginBottom: 4 },
+    subtitle: { fontSize: 13, color: c.textSecondary },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    statusGreen: { backgroundColor: '#00FF8820' },
+    statusOrange: { backgroundColor: '#FFB80020' },
+    statusText: { fontSize: 12, fontWeight: '700' as const, color: c.text },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: c.text, marginBottom: 12 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+    gridCard: { flex: 1, minWidth: '47%', backgroundColor: c.bgCard, borderRadius: 10, padding: 12 },
+    gridLabel: { fontSize: 11, color: c.textSecondary, marginBottom: 6, fontWeight: '600' as const },
+    gridValue: { fontSize: 18, fontWeight: '700' as const, color: c.text },
+    green: { color: '#00FF88' },
+    detailCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 14 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.bgSecondary },
+    detailLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
+    detailValue: { fontSize: 13, color: c.text, maxWidth: '60%' },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, flex: 1 },
+    btnRed: { backgroundColor: '#FF5757' },
+    btnDark: { backgroundColor: c.border },
+    btnDisabled: { opacity: 0.5 },
+    actionBtnText: { fontSize: 13, fontWeight: '600' as const, color: '#FFFFFF' },
+    ownerCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8 },
+    ownerRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+    ownerLabel: { fontSize: 12, color: c.textSecondary, fontWeight: '600' as const },
+    ownerValue: { fontSize: 12, color: c.text, maxWidth: '60%' },
+    containerCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8 },
+    containerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    containerName: { fontSize: 14, fontWeight: '600' as const, color: c.text },
+    portRow: { flexDirection: 'row', gap: 4 },
+    portBadge: { fontSize: 10, color: '#00D9FF', backgroundColor: '#00D9FF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    containerImage: { fontSize: 12, color: c.textSecondary, marginBottom: 6 },
+    resourceRow: { flexDirection: 'row', gap: 12 },
+    resourceText: { fontSize: 11, color: c.textSecondary },
+    tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tag: { backgroundColor: c.bgCard, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.border },
+    tagText: { fontSize: 11, color: c.textSecondary },
+    eventCard: { backgroundColor: c.bgCard, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border },
+    eventCardWarning: { borderColor: '#FFB86C40' },
+    eventTop: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 8 },
+    eventInfo: { flex: 1 },
+    eventReason: { fontSize: 13, fontWeight: '600' as const, color: c.text, marginBottom: 3 },
+    eventMessage: { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    eventMeta: { alignItems: 'flex-end' as const, gap: 3 },
+    eventType: { fontSize: 10, fontWeight: '700' as const, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    eventTypeWarning: { backgroundColor: '#FFB86C25', color: '#FFB86C' },
+    eventTypeNormal: { backgroundColor: '#00D9FF20', color: '#00D9FF' },
+    eventAge: { fontSize: 11, color: c.textSecondary },
+    eventCount: { fontSize: 10, color: c.textSecondary },
+  });
+}
