@@ -1,11 +1,15 @@
 import { HeaderRefreshButton } from '@/components/HeaderRefreshButton';
+import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import LoginScreen from '../screens/LoginScreen';
 import LogsScreen from '../screens/LogsScreen';
 import PodDetailsScreen from '../screens/PodDetailsScreen';
 import SetupScreen from '../screens/SetupScreen';
+import SignupScreen from '../screens/SignupScreen';
 import SidebarLayout from './SidebarLayout';
 
 // Detail screens
@@ -23,6 +27,8 @@ import NodeDetailsScreen from '../screens/NodeDetailsScreen';
 import NamespaceDetailsScreen from '../screens/NamespaceDetailsScreen';
 
 export type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
   Main: undefined;
   Setup: undefined;
   Logs: { type?: string; name?: string; namespace?: string };
@@ -45,6 +51,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   const { colors } = useTheme();
+  const { isAuthenticated, isLoading } = useAuth();
 
   const headerStyle = {
     headerStyle: { backgroundColor: colors.bgTopBar },
@@ -56,6 +63,25 @@ export default function AppNavigator() {
     ...headerStyle,
     headerRight: () => <HeaderRefreshButton />,
   };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
 
   return (
     <NavigationContainer>

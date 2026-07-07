@@ -1,10 +1,11 @@
+import { useAuth } from '@/context/AuthContext';
 import { useKubernetes } from '@/context/KubernetesContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { AppColors } from '@/context/ThemeContext';
 import type { ClusterConnection } from '@/types/kubernetes';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CheckCircle2, Cloud, Moon, Plus, Server, Settings as SettingsIcon, Sun, Trash2 } from 'lucide-react-native';
+import { CheckCircle2, Cloud, LogOut, Moon, Plus, Server, Settings as SettingsIcon, Sun, Trash2 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { Alert, FlatList, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -13,9 +14,17 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SettingsScreen() {
   const { connections, activeConnection, setActiveConnection, deleteConnection } = useKubernetes();
+  const { user, signOut } = useAuth();
   const navigation = useNavigation<NavProp>();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleSignOut = () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => signOut() },
+    ]);
+  };
 
   const handleDeleteConnection = (connection: ClusterConnection) => {
     Alert.alert(
@@ -142,6 +151,14 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      <View style={styles.accountSection}>
+        {user?.email && <Text style={styles.accountEmail}>{user.email}</Text>}
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <LogOut size={16} color={colors.accentRed} />
+          <Text style={styles.signOutButtonText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.footer}>
         <Text style={styles.footerText}>Kubernetes Manager v1.0.0</Text>
         <Text style={styles.footerSubtext}>Built with React Native</Text>
@@ -193,6 +210,10 @@ function createStyles(c: AppColors) {
     emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 24 },
     emptyButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.accent, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
     emptyButtonText: { fontSize: 15, fontWeight: '600' as const, color: '#000000' },
+    accountSection: { paddingHorizontal: 16, paddingBottom: 12, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 12 },
+    accountEmail: { fontSize: 13, color: c.textSecondary, marginBottom: 10 },
+    signOutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.bgCard, borderRadius: 10, paddingVertical: 12, borderWidth: 1, borderColor: c.accentRed },
+    signOutButtonText: { fontSize: 14, fontWeight: '700' as const, color: c.accentRed },
     footer: { padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border },
     footerText: { fontSize: 13, color: c.textSecondary, fontWeight: '600' as const },
     footerSubtext: { fontSize: 11, color: c.textMuted, marginTop: 4 },
